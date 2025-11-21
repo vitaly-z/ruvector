@@ -2,7 +2,7 @@
   "name": "@ruvector/core-darwin-x64",
   "version": "0.1.1",
   "description": "macOS x64 native binding for @ruvector/core",
-  "main": "index.node",
+  "main": "index.js",
   "type": "commonjs",
   "os": ["darwin"],
   "cpu": ["x64"],
@@ -10,7 +10,10 @@
     "node": ">= 18"
   },
   "files": [
-    "index.node"
+    "index.js",
+    "ruvector.node",
+    "*.node",
+    "README.md"
   ],
   "keywords": [
     "ruvector",

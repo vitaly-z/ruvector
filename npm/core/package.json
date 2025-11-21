@@ -35,6 +35,8 @@
   "files": [
     "dist",
     "platforms",
+    "native",
+    "*.node",
     "README.md",
     "LICENSE"
   ],
