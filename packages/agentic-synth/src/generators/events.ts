@@ -63,7 +63,7 @@ Return ONLY a JSON array of events, no additional text.`;
     return prompt;
   }
 
-  protected parseResult(response: string, options: EventOptions): any[] {
+  protected parseResult(response: string, options: EventOptions): unknown[] {
     try {
       // Extract JSON from response
       const jsonMatch = response.match(/\[[\s\S]*\]/);
@@ -79,32 +79,39 @@ Return ONLY a JSON array of events, no additional text.`;
 
       // Validate event structure
       return data.map((event, index) => {
-        if (!event.eventId) {
-          event.eventId = `evt_${Date.now()}_${index}`;
+        if (typeof event !== 'object' || event === null) {
+          throw new ValidationError(`Invalid event at index ${index}`, { event });
         }
 
-        if (!event.eventType) {
+        const record = event as Record<string, unknown>;
+
+        if (!record.eventId) {
+          record.eventId = `evt_${Date.now()}_${index}`;
+        }
+
+        if (!record.eventType) {
           throw new ValidationError(`Missing eventType at index ${index}`, { event });
         }
 
-        if (!event.timestamp) {
+        if (!record.timestamp) {
           throw new ValidationError(`Missing timestamp at index ${index}`, { event });
         }
 
-        if (!event.userId) {
+        if (!record.userId) {
           throw new ValidationError(`Missing userId at index ${index}`, { event });
         }
 
         return {
-          eventId: event.eventId,
-          eventType: event.eventType,
-          timestamp: new Date(event.timestamp).toISOString(),
-          userId: event.userId,
-          metadata: event.metadata || {}
+          eventId: record.eventId as string,
+          eventType: record.eventType as string,
+          timestamp: new Date(record.timestamp as string | number | Date).toISOString(),
+          userId: record.userId as string,
+          metadata: (record.metadata as Record<string, unknown>) || {}
         };
       });
-    } catch (error: any) {
-      throw new ValidationError(`Failed to parse event data: ${error.message}`, {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new ValidationError(`Failed to parse event data: ${errorMessage}`, {
         response: response.substring(0, 200),
         error
       });
@@ -114,7 +121,7 @@ Return ONLY a JSON array of events, no additional text.`;
   /**
    * Generate synthetic events with local computation
    */
-  async generateLocal(options: EventOptions): Promise<any[]> {
+  async generateLocal(options: EventOptions): Promise<Array<Record<string, unknown>>> {
     const {
       count = 100,
       eventTypes = ['click', 'view', 'purchase'],
@@ -128,24 +135,37 @@ Return ONLY a JSON array of events, no additional text.`;
       : Date.now() - 24 * 60 * 60 * 1000;
     const end = timeRange?.end ? new Date(timeRange.end).getTime() : Date.now();
 
-    const events: any[] = [];
+    const events: Array<Record<string, unknown>> = [];
     const timestamps = this.generateTimestamps(count, start, end, distribution);
 
     for (let i = 0; i < count; i++) {
       const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
       const userId = `user_${Math.floor(Math.random() * userCount) + 1}`;
+      const timestamp = timestamps[i];
+
+      // Ensure we have valid values (strict mode checks)
+      if (eventType === undefined || timestamp === undefined) {
+        throw new ValidationError(
+          `Failed to generate event at index ${i}`,
+          { eventType, timestamp }
+        );
+      }
 
       events.push({
         eventId: `evt_${Date.now()}_${i}`,
         eventType,
-        timestamp: new Date(timestamps[i]).toISOString(),
+        timestamp: new Date(timestamp).toISOString(),
         userId,
         metadata: this.generateMetadata(eventType)
       });
     }
 
     // Sort by timestamp
-    events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    events.sort((a, b) => {
+      const aTime = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : 0;
+      const bTime = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : 0;
+      return aTime - bTime;
+    });
 
     return events;
   }
@@ -194,8 +214,8 @@ Return ONLY a JSON array of events, no additional text.`;
     return timestamps.sort((a, b) => a - b);
   }
 
-  private generateMetadata(eventType: string): Record<string, any> {
-    const metadata: Record<string, any> = {};
+  private generateMetadata(eventType: string): Record<string, unknown> {
+    const metadata: Record<string, unknown> = {};
 
     switch (eventType.toLowerCase()) {
       case 'click':

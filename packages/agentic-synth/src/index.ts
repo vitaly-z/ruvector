@@ -55,7 +55,7 @@ export class AgenticSynth {
   /**
    * Generate time-series data
    */
-  async generateTimeSeries<T = any>(
+  async generateTimeSeries<T = unknown>(
     options: Partial<TimeSeriesOptions> = {}
   ): Promise<GenerationResult<T>> {
     return this.timeSeriesGen.generate<T>(options as TimeSeriesOptions);
@@ -64,7 +64,7 @@ export class AgenticSynth {
   /**
    * Generate event data
    */
-  async generateEvents<T = any>(
+  async generateEvents<T = unknown>(
     options: Partial<EventOptions> = {}
   ): Promise<GenerationResult<T>> {
     return this.eventGen.generate<T>(options as EventOptions);
@@ -73,7 +73,7 @@ export class AgenticSynth {
   /**
    * Generate structured data
    */
-  async generateStructured<T = any>(
+  async generateStructured<T = unknown>(
     options: Partial<GeneratorOptions> = {}
   ): Promise<GenerationResult<T>> {
     return this.structuredGen.generate<T>(options as GeneratorOptions);
@@ -82,7 +82,7 @@ export class AgenticSynth {
   /**
    * Generate data by type
    */
-  async generate<T = any>(
+  async generate<T = unknown>(
     type: DataType,
     options: Partial<GeneratorOptions> = {}
   ): Promise<GenerationResult<T>> {
@@ -102,24 +102,24 @@ export class AgenticSynth {
   /**
    * Generate with streaming
    */
-  async *generateStream<T = any>(
+  async *generateStream<T = unknown>(
     type: DataType,
     options: Partial<GeneratorOptions> = {}
   ): AsyncGenerator<T, void, unknown> {
     const generator = this.getGenerator(type);
-    yield* generator.generateStream<T>(options as any);
+    yield* generator.generateStream<T>(options as GeneratorOptions);
   }
 
   /**
    * Generate multiple batches in parallel
    */
-  async generateBatch<T = any>(
+  async generateBatch<T = unknown>(
     type: DataType,
     batchOptions: Partial<GeneratorOptions>[],
     concurrency: number = 3
   ): Promise<GenerationResult<T>[]> {
     const generator = this.getGenerator(type);
-    return generator.generateBatch<T>(batchOptions as any, concurrency);
+    return generator.generateBatch<T>(batchOptions as GeneratorOptions[], concurrency);
   }
 
   /**

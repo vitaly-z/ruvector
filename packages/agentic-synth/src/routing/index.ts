@@ -127,7 +127,17 @@ export class ModelRouter {
       );
     }
 
-    return candidates[0];
+    // Safe to access: we've checked length > 0
+    const selectedRoute = candidates[0];
+    if (!selectedRoute) {
+      throw new SynthError(
+        'Unexpected error: no route selected despite candidates',
+        'ROUTE_SELECTION_ERROR',
+        { candidates }
+      );
+    }
+
+    return selectedRoute;
   }
 
   /**

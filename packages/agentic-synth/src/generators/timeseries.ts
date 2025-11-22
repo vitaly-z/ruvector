@@ -64,7 +64,7 @@ Return ONLY the JSON array, no additional text.`;
     return prompt;
   }
 
-  protected parseResult(response: string, options: TimeSeriesOptions): any[] {
+  protected parseResult(response: string, options: TimeSeriesOptions): unknown[] {
     try {
       // Extract JSON from response
       const jsonMatch = response.match(/\[[\s\S]*\]/);
@@ -80,14 +80,19 @@ Return ONLY the JSON array, no additional text.`;
 
       // Validate and transform data
       return data.map((item, index) => {
-        if (!item.timestamp) {
+        if (typeof item !== 'object' || item === null) {
+          throw new ValidationError(`Invalid data item at index ${index}`, { item });
+        }
+
+        const record = item as Record<string, unknown>;
+        if (!record.timestamp) {
           throw new ValidationError(`Missing timestamp at index ${index}`, { item });
         }
 
         // Ensure all specified metrics are present
         const metrics = options.metrics || ['value'];
         for (const metric of metrics) {
-          if (typeof item[metric] !== 'number') {
+          if (typeof record[metric] !== 'number') {
             throw new ValidationError(
               `Missing or invalid metric '${metric}' at index ${index}`,
               { item }
@@ -96,12 +101,13 @@ Return ONLY the JSON array, no additional text.`;
         }
 
         return {
-          timestamp: new Date(item.timestamp).toISOString(),
-          ...item
+          timestamp: new Date(record.timestamp as string | number | Date).toISOString(),
+          ...record
         };
       });
-    } catch (error: any) {
-      throw new ValidationError(`Failed to parse time-series data: ${error.message}`, {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new ValidationError(`Failed to parse time-series data: ${errorMessage}`, {
         response: response.substring(0, 200),
         error
       });
@@ -111,7 +117,7 @@ Return ONLY the JSON array, no additional text.`;
   /**
    * Generate synthetic time-series with local computation (faster for simple patterns)
    */
-  async generateLocal(options: TimeSeriesOptions): Promise<any[]> {
+  async generateLocal(options: TimeSeriesOptions): Promise<Array<Record<string, unknown>>> {
     const {
       count = 100,
       startDate = new Date(),
@@ -124,14 +130,14 @@ Return ONLY the JSON array, no additional text.`;
 
     const start = new Date(startDate).getTime();
     const intervalMs = this.parseInterval(interval);
-    const data: any[] = [];
+    const data: Array<Record<string, unknown>> = [];
 
     let baseValue = 100;
     const trendRate = trend === 'up' ? 0.01 : trend === 'down' ? -0.01 : 0;
 
     for (let i = 0; i < count; i++) {
       const timestamp = new Date(start + i * intervalMs);
-      const point: any = { timestamp: timestamp.toISOString() };
+      const point: Record<string, unknown> = { timestamp: timestamp.toISOString() };
 
       for (const metric of metrics) {
         let value = baseValue;
@@ -166,6 +172,12 @@ Return ONLY the JSON array, no additional text.`;
     }
 
     const [, amount, unit] = match;
+
+    // Strict mode: ensure captured groups are defined
+    if (!amount || !unit) {
+      throw new ValidationError('Invalid interval format: missing amount or unit', { interval, match });
+    }
+
     const multipliers: Record<string, number> = {
       s: 1000,
       m: 60 * 1000,
@@ -173,6 +185,11 @@ Return ONLY the JSON array, no additional text.`;
       d: 24 * 60 * 60 * 1000
     };
 
-    return parseInt(amount) * multipliers[unit];
+    const multiplier = multipliers[unit];
+    if (multiplier === undefined) {
+      throw new ValidationError('Invalid interval unit', { interval, unit });
+    }
+
+    return parseInt(amount, 10) * multiplier;
   }
 }

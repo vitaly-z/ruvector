@@ -4,7 +4,7 @@
 
 import { CacheStrategy, CacheError } from '../types.js';
 
-export interface CacheEntry<T = any> {
+export interface CacheEntry<T = unknown> {
   key: string;
   value: T;
   timestamp: number;
@@ -16,7 +16,7 @@ export interface CacheOptions {
   strategy: CacheStrategy;
   ttl: number;
   maxSize?: number;
-  onEvict?: (key: string, value: any) => void;
+  onEvict?: (key: string, value: unknown) => void;
 }
 
 export abstract class CacheStore {
@@ -35,7 +35,7 @@ export class MemoryCache extends CacheStore {
   private cache: Map<string, CacheEntry>;
   private maxSize: number;
   private defaultTTL: number;
-  private onEvict?: (key: string, value: any) => void;
+  private onEvict?: (key: string, value: unknown) => void;
 
   constructor(options: Omit<CacheOptions, 'strategy'>) {
     super();
@@ -267,7 +267,7 @@ export class CacheManager {
   /**
    * Generate cache key from parameters
    */
-  static generateKey(prefix: string, params: Record<string, any>): string {
+  static generateKey(prefix: string, params: Record<string, unknown>): string {
     const sorted = Object.keys(params)
       .sort()
       .map(key => `${key}:${JSON.stringify(params[key])}`)

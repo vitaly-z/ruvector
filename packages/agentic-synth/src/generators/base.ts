@@ -55,12 +55,12 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   /**
    * Abstract method for result parsing
    */
-  protected abstract parseResult(response: string, options: TOptions): any[];
+  protected abstract parseResult(response: string, options: TOptions): unknown[];
 
   /**
    * Generate synthetic data
    */
-  async generate<T = any>(options: TOptions): Promise<GenerationResult<T>> {
+  async generate<T = unknown>(options: TOptions): Promise<GenerationResult<T>> {
     const startTime = Date.now();
 
     // Validate options
@@ -117,7 +117,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   /**
    * Generate with streaming support
    */
-  async *generateStream<T = any>(
+  async *generateStream<T = unknown>(
     options: TOptions,
     callback?: StreamCallback<T>
   ): AsyncGenerator<T, void, unknown> {
@@ -144,7 +144,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
         const items = this.tryParseStreamBuffer(buffer, options);
         for (const item of items) {
           if (callback) {
-            await callback({ type: 'data', data: item });
+            await callback({ type: 'data', data: item as T });
           }
           yield item as T;
         }
@@ -163,7 +163,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   /**
    * Batch generation with parallel processing
    */
-  async generateBatch<T = any>(
+  async generateBatch<T = unknown>(
     batchOptions: TOptions[],
     concurrency: number = 3
   ): Promise<GenerationResult<T>[]> {
@@ -229,8 +229,9 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
       const result = await genModel.generateContent(prompt);
       const response = result.response;
       return response.text();
-    } catch (error: any) {
-      throw new APIError(`Gemini API error: ${error.message}`, {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new APIError(`Gemini API error: ${errorMessage}`, {
         model,
         error
       });
@@ -265,10 +266,13 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as any;
+      const data = await response.json() as {
+        choices?: Array<{ message?: { content?: string } }>
+      };
       return data.choices?.[0]?.message?.content || '';
-    } catch (error: any) {
-      throw new APIError(`OpenRouter API error: ${error.message}`, {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new APIError(`OpenRouter API error: ${errorMessage}`, {
         model,
         error
       });
@@ -291,7 +295,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   /**
    * Try to parse items from streaming buffer
    */
-  protected tryParseStreamBuffer(buffer: string, options: TOptions): any[] {
+  protected tryParseStreamBuffer(buffer: string, options: TOptions): unknown[] {
     // Override in subclasses for specific parsing logic
     return [];
   }
@@ -299,7 +303,7 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   /**
    * Format output based on options
    */
-  protected formatOutput(data: any[], format: string = 'json'): any {
+  protected formatOutput(data: unknown[], format: string = 'json'): string | unknown[] {
     switch (format) {
       case 'csv':
         return this.convertToCSV(data);
@@ -314,13 +318,18 @@ export abstract class BaseGenerator<TOptions extends GeneratorOptions = Generato
   /**
    * Convert data to CSV format
    */
-  private convertToCSV(data: any[]): string {
+  private convertToCSV(data: unknown[]): string {
     if (data.length === 0) return '';
 
-    const headers = Object.keys(data[0] || {});
-    const rows = data.map(item =>
-      headers.map(header => JSON.stringify((item as any)[header] || '')).join(',')
-    );
+    const firstItem = data[0];
+    if (typeof firstItem !== 'object' || firstItem === null) return '';
+
+    const headers = Object.keys(firstItem);
+    const rows = data.map(item => {
+      if (typeof item !== 'object' || item === null) return '';
+      const record = item as Record<string, unknown>;
+      return headers.map(header => JSON.stringify(record[header] ?? '')).join(',');
+    });
 
     return [headers.join(','), ...rows].join('\n');
   }

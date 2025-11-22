@@ -3,7 +3,7 @@
  */
 
 import { BaseGenerator } from './base.js';
-import { GeneratorOptions, ValidationError } from '../types.js';
+import { GeneratorOptions, ValidationError, DataSchema, SchemaField } from '../types.js';
 
 export class StructuredGenerator extends BaseGenerator<GeneratorOptions> {
   protected generatePrompt(options: GeneratorOptions): string {
@@ -39,7 +39,7 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
     return prompt;
   }
 
-  protected parseResult(response: string, options: GeneratorOptions): any[] {
+  protected parseResult(response: string, options: GeneratorOptions): unknown[] {
     try {
       // Extract JSON from response
       const jsonMatch = response.match(/\[[\s\S]*\]/);
@@ -62,8 +62,9 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
       }
 
       return data;
-    } catch (error: any) {
-      throw new ValidationError(`Failed to parse structured data: ${error.message}`, {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new ValidationError(`Failed to parse structured data: ${errorMessage}`, {
         response: response.substring(0, 200),
         error
       });
@@ -71,13 +72,22 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
   }
 
   private validateAgainstSchema(
-    item: any,
-    schema: Record<string, any>,
+    item: unknown,
+    schema: Record<string, unknown>,
     index: number
   ): void {
+    if (typeof item !== 'object' || item === null) {
+      throw new ValidationError(`Item at index ${index} is not an object`, { item, schema });
+    }
+
+    const record = item as Record<string, unknown>;
     for (const [key, schemaValue] of Object.entries(schema)) {
+      if (typeof schemaValue !== 'object' || schemaValue === null) continue;
+
+      const fieldSchema = schemaValue as Record<string, unknown>;
+
       // Check required fields
-      if (schemaValue.required && !(key in item)) {
+      if (fieldSchema.required && !(key in record)) {
         throw new ValidationError(`Missing required field '${key}' at index ${index}`, {
           item,
           schema
@@ -85,11 +95,11 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
       }
 
       // Check types
-      if (key in item && schemaValue.type) {
-        const actualType = typeof item[key];
-        const expectedType = schemaValue.type;
+      if (key in record && fieldSchema.type) {
+        const actualType = typeof record[key];
+        const expectedType = fieldSchema.type;
 
-        if (expectedType === 'array' && !Array.isArray(item[key])) {
+        if (expectedType === 'array' && !Array.isArray(record[key])) {
           throw new ValidationError(
             `Field '${key}' should be array at index ${index}`,
             { item, schema }
@@ -103,8 +113,8 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
       }
 
       // Check nested objects
-      if (schemaValue.properties && typeof item[key] === 'object') {
-        this.validateAgainstSchema(item[key], schemaValue.properties, index);
+      if (fieldSchema.properties && typeof record[key] === 'object') {
+        this.validateAgainstSchema(record[key], fieldSchema.properties as Record<string, unknown>, index);
       }
     }
   }
@@ -112,8 +122,8 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
   /**
    * Generate structured data with specific domain
    */
-  async generateDomain(domain: string, options: GeneratorOptions): Promise<any[]> {
-    const domainSchemas: Record<string, any> = {
+  async generateDomain(domain: string, options: GeneratorOptions): Promise<unknown[]> {
+    const domainSchemas: Record<string, DataSchema> = {
       users: {
         id: { type: 'string', required: true },
         name: { type: 'string', required: true },
@@ -156,7 +166,7 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
   /**
    * Generate data from JSON schema
    */
-  async generateFromJSONSchema(jsonSchema: any, options: GeneratorOptions): Promise<any[]> {
+  async generateFromJSONSchema(jsonSchema: Record<string, unknown>, options: GeneratorOptions): Promise<unknown[]> {
     // Convert JSON Schema to internal schema format
     const schema = this.convertJSONSchema(jsonSchema);
 
@@ -166,20 +176,25 @@ Return ONLY a JSON array of ${count} objects, no additional text.`;
     }).then(result => result.data);
   }
 
-  private convertJSONSchema(jsonSchema: any): Record<string, any> {
-    const schema: Record<string, any> = {};
+  private convertJSONSchema(jsonSchema: Record<string, unknown>): DataSchema {
+    const schema: DataSchema = {};
 
-    if (jsonSchema.properties) {
-      for (const [key, value] of Object.entries(jsonSchema.properties)) {
-        const prop: any = value;
-        schema[key] = {
-          type: prop.type,
-          required: jsonSchema.required?.includes(key) || false
+    if (jsonSchema.properties && typeof jsonSchema.properties === 'object') {
+      const properties = jsonSchema.properties as Record<string, unknown>;
+      for (const [key, value] of Object.entries(properties)) {
+        if (typeof value !== 'object' || value === null) continue;
+
+        const prop = value as Record<string, unknown>;
+        const field: SchemaField = {
+          type: typeof prop.type === 'string' ? prop.type : 'string',
+          required: Array.isArray(jsonSchema.required) && jsonSchema.required.includes(key) || false
         };
 
         if (prop.properties) {
-          schema[key].properties = this.convertJSONSchema(prop);
+          field.properties = this.convertJSONSchema(prop);
         }
+
+        schema[key] = field;
       }
     }
 

@@ -4,6 +4,27 @@
 
 import { z } from 'zod';
 
+// JSON types
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonArray = JsonValue[];
+export type JsonObject = { [key: string]: JsonValue };
+export type JsonValue = JsonPrimitive | JsonArray | JsonObject;
+
+// Schema types
+export interface SchemaField {
+  type: string;
+  required?: boolean;
+  properties?: Record<string, SchemaField>;
+  items?: SchemaField;
+  enum?: unknown[];
+  minimum?: number;
+  maximum?: number;
+  pattern?: string;
+}
+
+export type DataSchema = Record<string, SchemaField>;
+export type DataConstraints = Record<string, unknown>;
+
 // Configuration schemas
 export const ModelProviderSchema = z.enum(['gemini', 'openrouter']);
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
@@ -51,18 +72,18 @@ export const SynthConfigSchema = z.object({
 // Generator options
 export interface GeneratorOptions {
   count?: number;
-  schema?: Record<string, any>;
+  schema?: DataSchema;
   format?: 'json' | 'csv' | 'array';
   seed?: string | number;
-  constraints?: Record<string, any>;
+  constraints?: DataConstraints;
 }
 
 export const GeneratorOptionsSchema = z.object({
   count: z.number().optional().default(1),
-  schema: z.record(z.any()).optional(),
+  schema: z.record(z.string(), z.unknown()).optional(),
   format: z.enum(['json', 'csv', 'array']).optional().default('json'),
   seed: z.union([z.string(), z.number()]).optional(),
-  constraints: z.record(z.any()).optional()
+  constraints: z.record(z.string(), z.unknown()).optional()
 });
 
 // Time series specific options
@@ -108,7 +129,7 @@ export const EventOptionsSchema = GeneratorOptionsSchema.extend({
 });
 
 // Generation result
-export interface GenerationResult<T = any> {
+export interface GenerationResult<T = JsonValue> {
   data: T[];
   metadata: {
     count: number;
@@ -162,11 +183,11 @@ export interface ModelRoute {
 }
 
 // Streaming types
-export interface StreamChunk<T = any> {
+export interface StreamChunk<T = JsonValue> {
   type: 'data' | 'metadata' | 'error' | 'complete';
   data?: T;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   error?: Error;
 }
 
-export type StreamCallback<T = any> = (chunk: StreamChunk<T>) => void | Promise<void>;
+export type StreamCallback<T = JsonValue> = (chunk: StreamChunk<T>) => void | Promise<void>;
