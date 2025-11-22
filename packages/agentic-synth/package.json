@@ -38,7 +38,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean && chmod +x bin/cli.js",
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "build:generators": "tsup src/generators/index.ts --format esm,cjs --dts --out-dir dist/generators",
     "build:cache": "tsup src/cache/index.ts --format esm,cjs --dts --out-dir dist/cache",
     "build:all": "npm run build && npm run build:generators && npm run build:cache",
