@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/agentic-synth-examples",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Production-ready examples for @ruvector/agentic-synth - DSPy training, multi-model benchmarking, and advanced synthetic data generation patterns",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -72,7 +72,7 @@
   "bugs": {
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
-  "homepage": "https://github.com/ruvnet/ruvector/tree/main/packages/agentic-synth-examples#readme",
+  "homepage": "https://ruv.io",
   "dependencies": {
     "@ruvector/agentic-synth": "file:../agentic-synth",
     "commander": "^11.1.0",

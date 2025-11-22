@@ -26,8 +26,9 @@ describe('CLI', () => {
 
     // Create test directory
     if (!existsSync(testDir)) {
-      const { mkdirSync } = require('fs');
-      mkdirSync(testDir, { recursive: true });
+      await import('fs').then(({ mkdirSync }) => {
+        mkdirSync(testDir, { recursive: true });
+      });
     }
   });
 
