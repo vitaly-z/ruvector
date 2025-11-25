@@ -5,13 +5,21 @@ members = [
     "crates/ruvector-wasm",
     "crates/ruvector-cli",
     "crates/ruvector-bench",
+    "crates/ruvector-metrics",
+    "crates/ruvector-filter",
     "crates/ruvector-router-core",
     "crates/ruvector-router-cli",
     "crates/ruvector-router-ffi",
     "crates/ruvector-router-wasm",
+    "crates/ruvector-server",
+    "crates/ruvector-snapshot",
     "crates/ruvector-tiny-dancer-core",
     "crates/ruvector-tiny-dancer-wasm",
     "crates/ruvector-tiny-dancer-node",
+    "crates/ruvector-collections",
+    "crates/ruvector-cluster",
+    "crates/ruvector-raft",
+    "crates/ruvector-replication",
 ]
 resolver = "2"
 
@@ -34,7 +42,7 @@ crossbeam = "0.8"
 
 # Serialization
 rkyv = "0.8"
-bincode = "2.0.0-rc.3"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -99,4 +107,3 @@ opt-level = 0
 debug = true
 
 [profile.test]
-opt-level = 1

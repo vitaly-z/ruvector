@@ -15,6 +15,13 @@ use ruvector_core::{
 };
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+// Import new crates
+use ruvector_collections::CollectionManager as CoreCollectionManager;
+use ruvector_filter::FilterExpression;
+use ruvector_metrics::{gather_metrics, HealthChecker, HealthStatus};
+use std::path::PathBuf;
 
 /// Distance metric for similarity calculation
 #[napi(string_enum)]
@@ -43,7 +50,7 @@ impl From<JsDistanceMetric> for DistanceMetric {
 
 /// Quantization configuration
 #[napi(object)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct JsQuantizationConfig {
     /// Quantization type: "none", "scalar", "product", "binary"
     pub r#type: String,
@@ -70,7 +77,7 @@ impl From<JsQuantizationConfig> for QuantizationConfig {
 
 /// HNSW index configuration
 #[napi(object)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct JsHnswConfig {
     /// Number of connections per layer (M)
     pub m: Option<u32>,
@@ -422,4 +429,324 @@ pub fn version() -> String {
 #[napi]
 pub fn hello() -> String {
     "Hello from Ruvector Node.js bindings!".to_string()
+}
+
+/// Filter for metadata-based search
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct JsFilter {
+    /// Field name to filter on
+    pub field: String,
+    /// Operator: "eq", "ne", "gt", "gte", "lt", "lte", "in", "match"
+    pub operator: String,
+    /// Value to compare against (JSON string)
+    pub value: String,
+}
+
+impl JsFilter {
+    fn to_filter_expression(&self) -> Result<FilterExpression> {
+        let value: serde_json::Value = serde_json::from_str(&self.value)
+            .map_err(|e| Error::from_reason(format!("Invalid JSON value: {}", e)))?;
+
+        Ok(match self.operator.as_str() {
+            "eq" => FilterExpression::eq(&self.field, value),
+            "ne" => FilterExpression::ne(&self.field, value),
+            "gt" => FilterExpression::gt(&self.field, value),
+            "gte" => FilterExpression::gte(&self.field, value),
+            "lt" => FilterExpression::lt(&self.field, value),
+            "lte" => FilterExpression::lte(&self.field, value),
+            "match" => FilterExpression::Match {
+                field: self.field.clone(),
+                text: value.as_str().unwrap_or("").to_string(),
+            },
+            _ => FilterExpression::eq(&self.field, value),
+        })
+    }
+}
+
+/// Collection configuration
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct JsCollectionConfig {
+    /// Vector dimensions
+    pub dimensions: u32,
+    /// Distance metric
+    pub distance_metric: Option<JsDistanceMetric>,
+    /// HNSW configuration
+    pub hnsw_config: Option<JsHnswConfig>,
+    /// Quantization configuration
+    pub quantization: Option<JsQuantizationConfig>,
+}
+
+impl From<JsCollectionConfig> for ruvector_collections::CollectionConfig {
+    fn from(config: JsCollectionConfig) -> Self {
+        ruvector_collections::CollectionConfig {
+            dimensions: config.dimensions as usize,
+            distance_metric: config
+                .distance_metric
+                .map(Into::into)
+                .unwrap_or(DistanceMetric::Cosine),
+            hnsw_config: config.hnsw_config.map(Into::into),
+            quantization: config.quantization.map(Into::into),
+            on_disk_payload: true,
+        }
+    }
+}
+
+/// Collection statistics
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct JsCollectionStats {
+    /// Number of vectors in the collection
+    pub vectors_count: u32,
+    /// Disk space used in bytes
+    pub disk_size_bytes: i64,
+    /// RAM space used in bytes
+    pub ram_size_bytes: i64,
+}
+
+impl From<ruvector_collections::CollectionStats> for JsCollectionStats {
+    fn from(stats: ruvector_collections::CollectionStats) -> Self {
+        JsCollectionStats {
+            vectors_count: stats.vectors_count as u32,
+            disk_size_bytes: stats.disk_size_bytes as i64,
+            ram_size_bytes: stats.ram_size_bytes as i64,
+        }
+    }
+}
+
+/// Collection alias
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct JsAlias {
+    /// Alias name
+    pub alias: String,
+    /// Collection name
+    pub collection: String,
+}
+
+impl From<(String, String)> for JsAlias {
+    fn from(tuple: (String, String)) -> Self {
+        JsAlias {
+            alias: tuple.0,
+            collection: tuple.1,
+        }
+    }
+}
+
+/// Collection manager for multi-collection support
+#[napi]
+pub struct CollectionManager {
+    inner: Arc<RwLock<CoreCollectionManager>>,
+}
+
+#[napi]
+impl CollectionManager {
+    /// Create a new collection manager
+    ///
+    /// # Example
+    /// ```javascript
+    /// const manager = new CollectionManager('./collections');
+    /// ```
+    #[napi(constructor)]
+    pub fn new(base_path: Option<String>) -> Result<Self> {
+        let path = PathBuf::from(base_path.unwrap_or_else(|| "./collections".to_string()));
+        let manager = CoreCollectionManager::new(path)
+            .map_err(|e| Error::from_reason(format!("Failed to create collection manager: {}", e)))?;
+
+        Ok(Self {
+            inner: Arc::new(RwLock::new(manager)),
+        })
+    }
+
+    /// Create a new collection
+    ///
+    /// # Example
+    /// ```javascript
+    /// await manager.createCollection('my_vectors', {
+    ///   dimensions: 384,
+    ///   distanceMetric: 'Cosine'
+    /// });
+    /// ```
+    #[napi]
+    pub async fn create_collection(&self, name: String, config: JsCollectionConfig) -> Result<()> {
+        let core_config: ruvector_collections::CollectionConfig = config.into();
+        let manager = self.inner.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let manager = manager.write().expect("RwLock poisoned");
+            manager.create_collection(&name, core_config)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("Failed to create collection: {}", e)))
+    }
+
+    /// List all collections
+    ///
+    /// # Example
+    /// ```javascript
+    /// const collections = await manager.listCollections();
+    /// console.log('Collections:', collections);
+    /// ```
+    #[napi]
+    pub async fn list_collections(&self) -> Result<Vec<String>> {
+        let manager = self.inner.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let manager = manager.read().expect("RwLock poisoned");
+            manager.list_collections()
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))
+    }
+
+    /// Delete a collection
+    ///
+    /// # Example
+    /// ```javascript
+    /// await manager.deleteCollection('my_vectors');
+    /// ```
+    #[napi]
+    pub async fn delete_collection(&self, name: String) -> Result<()> {
+        let manager = self.inner.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let manager = manager.write().expect("RwLock poisoned");
+            manager.delete_collection(&name)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("Failed to delete collection: {}", e)))
+    }
+
+    /// Get collection statistics
+    ///
+    /// # Example
+    /// ```javascript
+    /// const stats = await manager.getStats('my_vectors');
+    /// console.log(`Vectors: ${stats.vectorsCount}`);
+    /// ```
+    #[napi]
+    pub async fn get_stats(&self, name: String) -> Result<JsCollectionStats> {
+        let manager = self.inner.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let manager = manager.read().expect("RwLock poisoned");
+            manager.collection_stats(&name)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("Failed to get stats: {}", e)))
+        .map(Into::into)
+    }
+
+    /// Create an alias for a collection
+    ///
+    /// # Example
+    /// ```javascript
+    /// await manager.createAlias('latest', 'my_vectors_v2');
+    /// ```
+    #[napi]
+    pub async fn create_alias(&self, alias: String, collection: String) -> Result<()> {
+        let manager = self.inner.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let manager = manager.write().expect("RwLock poisoned");
+            manager.create_alias(&alias, &collection)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("Failed to create alias: {}", e)))
+    }
+
+    /// Delete an alias
+    ///
+    /// # Example
+    /// ```javascript
+    /// await manager.deleteAlias('latest');
+    /// ```
+    #[napi]
+    pub async fn delete_alias(&self, alias: String) -> Result<()> {
+        let manager = self.inner.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let manager = manager.write().expect("RwLock poisoned");
+            manager.delete_alias(&alias)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("Failed to delete alias: {}", e)))
+    }
+
+    /// List all aliases
+    ///
+    /// # Example
+    /// ```javascript
+    /// const aliases = await manager.listAliases();
+    /// for (const alias of aliases) {
+    ///   console.log(`${alias.alias} -> ${alias.collection}`);
+    /// }
+    /// ```
+    #[napi]
+    pub async fn list_aliases(&self) -> Result<Vec<JsAlias>> {
+        let manager = self.inner.clone();
+
+        let aliases = tokio::task::spawn_blocking(move || {
+            let manager = manager.read().expect("RwLock poisoned");
+            manager.list_aliases()
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?;
+
+        Ok(aliases.into_iter().map(Into::into).collect())
+    }
+}
+
+/// Health response
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct JsHealthResponse {
+    /// Status: "healthy", "degraded", or "unhealthy"
+    pub status: String,
+    /// Version string
+    pub version: String,
+    /// Uptime in seconds
+    pub uptime_seconds: i64,
+}
+
+/// Get Prometheus metrics
+///
+/// # Example
+/// ```javascript
+/// const metrics = getMetrics();
+/// console.log(metrics);
+/// ```
+#[napi]
+pub fn get_metrics() -> String {
+    gather_metrics()
+}
+
+/// Get health status
+///
+/// # Example
+/// ```javascript
+/// const health = getHealth();
+/// console.log(`Status: ${health.status}`);
+/// console.log(`Uptime: ${health.uptimeSeconds}s`);
+/// ```
+#[napi]
+pub fn get_health() -> JsHealthResponse {
+    let checker = HealthChecker::new();
+    let health = checker.health();
+
+    JsHealthResponse {
+        status: match health.status {
+            HealthStatus::Healthy => "healthy".to_string(),
+            HealthStatus::Degraded => "degraded".to_string(),
+            HealthStatus::Unhealthy => "unhealthy".to_string(),
+        },
+        version: health.version,
+        uptime_seconds: health.uptime_seconds as i64,
+    }
 }

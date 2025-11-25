@@ -1,0 +1,12 @@
+[package]
+name = "ruvector-metrics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+prometheus = "0.13"
+lazy_static = "1.5"
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }

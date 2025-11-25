@@ -22,11 +22,11 @@
     "clean": "rm -rf dist"
   },
   "optionalDependencies": {
-    "@ruvector/core-darwin-arm64": "0.1.1",
-    "@ruvector/core-darwin-x64": "0.1.1",
-    "@ruvector/core-linux-arm64-gnu": "0.1.1",
-    "@ruvector/core-linux-x64-gnu": "0.1.1",
-    "@ruvector/core-win32-x64-msvc": "0.1.1"
+    "@ruvector/core-darwin-arm64": "0.1.2",
+    "@ruvector/core-darwin-x64": "0.1.2",
+    "@ruvector/core-linux-arm64-gnu": "0.1.2",
+    "@ruvector/core-linux-x64-gnu": "0.1.2",
+    "@ruvector/core-win32-x64-msvc": "0.1.2"
   },
   "devDependencies": {
     "@types/node": "^20.19.25",

@@ -26,7 +26,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
             build: npm run build:napi -- --target aarch64-unknown-linux-gnu
             platform: linux-arm64-gnu
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
             build: npm run build:napi -- --target x86_64-apple-darwin
             platform: darwin-x64
@@ -78,6 +78,7 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
       - name: Find built .node files (debug)
+        shell: bash
         run: |
           echo "=== Searching entire workspace for .node files ==="
           find . -name "*.node" -type f 2>/dev/null || true

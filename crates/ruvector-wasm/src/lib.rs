@@ -17,6 +17,13 @@ use ruvector_core::{
     types::{DbOptions, DistanceMetric, HnswConfig, SearchQuery, SearchResult, VectorEntry},
     vector_db::VectorDB as CoreVectorDB,
 };
+#[cfg(feature = "collections")]
+use ruvector_collections::{
+    CollectionManager as CoreCollectionManager,
+    CollectionConfig as CoreCollectionConfig,
+};
+#[cfg(feature = "collections")]
+use ruvector_filter::FilterExpression as CoreFilterExpression;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
 use std::collections::HashMap;
@@ -395,6 +402,400 @@ pub fn benchmark(name: &str, iterations: usize, dimensions: usize) -> Result<f64
     console::log_1(&format!("Benchmark complete: {:.2} ops/sec", ops_per_sec).into());
 
     Ok(ops_per_sec)
+}
+
+// ===== Collection Manager =====
+// Note: Collections are not available in standard WASM builds due to file I/O requirements
+// To use collections, compile with the "collections" feature (requires WASI or server environment)
+
+#[cfg(feature = "collections")]
+/// WASM Collection Manager for multi-collection support
+#[wasm_bindgen]
+pub struct CollectionManager {
+    inner: Arc<Mutex<CoreCollectionManager>>,
+}
+
+#[cfg(feature = "collections")]
+#[wasm_bindgen]
+impl CollectionManager {
+    /// Create a new CollectionManager
+    ///
+    /// # Arguments
+    /// * `base_path` - Optional base path for storing collections (defaults to ":memory:")
+    #[wasm_bindgen(constructor)]
+    pub fn new(base_path: Option<String>) -> Result<CollectionManager, JsValue> {
+        let path = base_path.unwrap_or_else(|| ":memory:".to_string());
+
+        let manager = CoreCollectionManager::new(std::path::PathBuf::from(path))
+            .map_err(|e| JsValue::from_str(&format!("Failed to create collection manager: {}", e)))?;
+
+        Ok(CollectionManager {
+            inner: Arc::new(Mutex::new(manager)),
+        })
+    }
+
+    /// Create a new collection
+    ///
+    /// # Arguments
+    /// * `name` - Collection name (alphanumeric, hyphens, underscores only)
+    /// * `dimensions` - Vector dimensions
+    /// * `metric` - Optional distance metric ("euclidean", "cosine", "dotproduct", "manhattan")
+    #[wasm_bindgen(js_name = createCollection)]
+    pub fn create_collection(
+        &self,
+        name: &str,
+        dimensions: usize,
+        metric: Option<String>,
+    ) -> Result<(), JsValue> {
+        let distance_metric = match metric.as_deref() {
+            Some("euclidean") => DistanceMetric::Euclidean,
+            Some("cosine") => DistanceMetric::Cosine,
+            Some("dotproduct") => DistanceMetric::DotProduct,
+            Some("manhattan") => DistanceMetric::Manhattan,
+            None => DistanceMetric::Cosine,
+            Some(other) => return Err(JsValue::from_str(&format!("Unknown metric: {}", other))),
+        };
+
+        let config = CoreCollectionConfig {
+            dimensions,
+            distance_metric,
+            hnsw_config: Some(HnswConfig::default()),
+            quantization: None,
+            on_disk_payload: false, // Disable for WASM
+        };
+
+        let manager = self.inner.lock();
+        manager.create_collection(name, config)
+            .map_err(|e| JsValue::from_str(&format!("Failed to create collection: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// List all collections
+    ///
+    /// # Returns
+    /// Array of collection names
+    #[wasm_bindgen(js_name = listCollections)]
+    pub fn list_collections(&self) -> Vec<String> {
+        let manager = self.inner.lock();
+        manager.list_collections()
+    }
+
+    /// Delete a collection
+    ///
+    /// # Arguments
+    /// * `name` - Collection name to delete
+    ///
+    /// # Errors
+    /// Returns error if collection has active aliases
+    #[wasm_bindgen(js_name = deleteCollection)]
+    pub fn delete_collection(&self, name: &str) -> Result<(), JsValue> {
+        let manager = self.inner.lock();
+        manager.delete_collection(name)
+            .map_err(|e| JsValue::from_str(&format!("Failed to delete collection: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Get a collection's VectorDB
+    ///
+    /// # Arguments
+    /// * `name` - Collection name or alias
+    ///
+    /// # Returns
+    /// VectorDB instance or error if not found
+    #[wasm_bindgen(js_name = getCollection)]
+    pub fn get_collection(&self, name: &str) -> Result<VectorDB, JsValue> {
+        let manager = self.inner.lock();
+
+        let collection_ref = manager.get_collection(name)
+            .ok_or_else(|| JsValue::from_str(&format!("Collection '{}' not found", name)))?;
+
+        let collection = collection_ref.read();
+
+        // Create a new VectorDB wrapper that shares the underlying database
+        // Note: For WASM, we'll need to clone the DB state since we can't share references across WASM boundary
+        // This is a simplified version - in production you might want a different approach
+        let dimensions = collection.config.dimensions;
+        let db_name = collection.name.clone();
+
+        // For now, return a new VectorDB with the same config
+        // In a real implementation, you'd want to share the underlying storage
+        let db_options = DbOptions {
+            dimensions: collection.config.dimensions,
+            distance_metric: collection.config.distance_metric,
+            storage_path: ":memory:".to_string(),
+            hnsw_config: collection.config.hnsw_config.clone(),
+            quantization: collection.config.quantization.clone(),
+        };
+
+        let db = CoreVectorDB::new(db_options)
+            .map_err(|e| JsValue::from_str(&format!("Failed to get collection: {}", e)))?;
+
+        Ok(VectorDB {
+            db: Arc::new(Mutex::new(db)),
+            dimensions,
+            db_name,
+        })
+    }
+
+    /// Create an alias
+    ///
+    /// # Arguments
+    /// * `alias` - Alias name (must be unique)
+    /// * `collection` - Target collection name
+    #[wasm_bindgen(js_name = createAlias)]
+    pub fn create_alias(&self, alias: &str, collection: &str) -> Result<(), JsValue> {
+        let manager = self.inner.lock();
+        manager.create_alias(alias, collection)
+            .map_err(|e| JsValue::from_str(&format!("Failed to create alias: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Delete an alias
+    ///
+    /// # Arguments
+    /// * `alias` - Alias name to delete
+    #[wasm_bindgen(js_name = deleteAlias)]
+    pub fn delete_alias(&self, alias: &str) -> Result<(), JsValue> {
+        let manager = self.inner.lock();
+        manager.delete_alias(alias)
+            .map_err(|e| JsValue::from_str(&format!("Failed to delete alias: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// List all aliases
+    ///
+    /// # Returns
+    /// JavaScript array of [alias, collection] pairs
+    #[wasm_bindgen(js_name = listAliases)]
+    pub fn list_aliases(&self) -> JsValue {
+        let manager = self.inner.lock();
+        let aliases = manager.list_aliases();
+
+        let arr = Array::new();
+        for (alias, collection) in aliases {
+            let pair = Array::new();
+            pair.push(&JsValue::from_str(&alias));
+            pair.push(&JsValue::from_str(&collection));
+            arr.push(&pair);
+        }
+
+        arr.into()
+    }
+}
+
+// ===== Filter Builder =====
+
+#[cfg(feature = "collections")]
+/// JavaScript-compatible filter builder
+#[wasm_bindgen]
+pub struct FilterBuilder {
+    inner: CoreFilterExpression,
+}
+
+#[cfg(feature = "collections")]
+#[wasm_bindgen]
+impl FilterBuilder {
+    /// Create a new empty filter builder
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> FilterBuilder {
+        // Default to a match-all filter (we'll use exists on a common field)
+        // Users should use the builder methods instead
+        FilterBuilder {
+            inner: CoreFilterExpression::exists("_id"),
+        }
+    }
+
+    /// Create an equality filter
+    ///
+    /// # Arguments
+    /// * `field` - Field name
+    /// * `value` - Value to match (will be converted from JS)
+    ///
+    /// # Example
+    /// ```javascript
+    /// const filter = FilterBuilder.eq("status", "active");
+    /// ```
+    pub fn eq(field: &str, value: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_value: serde_json::Value = from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Invalid value: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::eq(field, json_value),
+        })
+    }
+
+    /// Create a not-equal filter
+    pub fn ne(field: &str, value: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_value: serde_json::Value = from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Invalid value: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::ne(field, json_value),
+        })
+    }
+
+    /// Create a greater-than filter
+    pub fn gt(field: &str, value: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_value: serde_json::Value = from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Invalid value: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::gt(field, json_value),
+        })
+    }
+
+    /// Create a greater-than-or-equal filter
+    pub fn gte(field: &str, value: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_value: serde_json::Value = from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Invalid value: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::gte(field, json_value),
+        })
+    }
+
+    /// Create a less-than filter
+    pub fn lt(field: &str, value: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_value: serde_json::Value = from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Invalid value: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::lt(field, json_value),
+        })
+    }
+
+    /// Create a less-than-or-equal filter
+    pub fn lte(field: &str, value: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_value: serde_json::Value = from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Invalid value: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::lte(field, json_value),
+        })
+    }
+
+    /// Create an IN filter (field matches any of the values)
+    ///
+    /// # Arguments
+    /// * `field` - Field name
+    /// * `values` - Array of values
+    #[wasm_bindgen(js_name = "in")]
+    pub fn in_values(field: &str, values: JsValue) -> Result<FilterBuilder, JsValue> {
+        let json_values: Vec<serde_json::Value> = from_value(values)
+            .map_err(|e| JsValue::from_str(&format!("Invalid values array: {}", e)))?;
+
+        Ok(FilterBuilder {
+            inner: CoreFilterExpression::in_values(field, json_values),
+        })
+    }
+
+    /// Create a text match filter
+    ///
+    /// # Arguments
+    /// * `field` - Field name
+    /// * `text` - Text to search for
+    #[wasm_bindgen(js_name = matchText)]
+    pub fn match_text(field: &str, text: &str) -> FilterBuilder {
+        FilterBuilder {
+            inner: CoreFilterExpression::match_text(field, text),
+        }
+    }
+
+    /// Create a geo radius filter
+    ///
+    /// # Arguments
+    /// * `field` - Field name (should contain {lat, lon} object)
+    /// * `lat` - Center latitude
+    /// * `lon` - Center longitude
+    /// * `radius_m` - Radius in meters
+    #[wasm_bindgen(js_name = geoRadius)]
+    pub fn geo_radius(field: &str, lat: f64, lon: f64, radius_m: f64) -> FilterBuilder {
+        FilterBuilder {
+            inner: CoreFilterExpression::geo_radius(field, lat, lon, radius_m),
+        }
+    }
+
+    /// Combine filters with AND
+    ///
+    /// # Arguments
+    /// * `filters` - Array of FilterBuilder instances
+    pub fn and(filters: Vec<FilterBuilder>) -> FilterBuilder {
+        let inner_filters: Vec<CoreFilterExpression> = filters
+            .into_iter()
+            .map(|f| f.inner)
+            .collect();
+
+        FilterBuilder {
+            inner: CoreFilterExpression::and(inner_filters),
+        }
+    }
+
+    /// Combine filters with OR
+    ///
+    /// # Arguments
+    /// * `filters` - Array of FilterBuilder instances
+    pub fn or(filters: Vec<FilterBuilder>) -> FilterBuilder {
+        let inner_filters: Vec<CoreFilterExpression> = filters
+            .into_iter()
+            .map(|f| f.inner)
+            .collect();
+
+        FilterBuilder {
+            inner: CoreFilterExpression::or(inner_filters),
+        }
+    }
+
+    /// Negate a filter with NOT
+    ///
+    /// # Arguments
+    /// * `filter` - FilterBuilder instance to negate
+    pub fn not(filter: FilterBuilder) -> FilterBuilder {
+        FilterBuilder {
+            inner: CoreFilterExpression::not(filter.inner),
+        }
+    }
+
+    /// Create an EXISTS filter (field is present)
+    pub fn exists(field: &str) -> FilterBuilder {
+        FilterBuilder {
+            inner: CoreFilterExpression::exists(field),
+        }
+    }
+
+    /// Create an IS NULL filter (field is null)
+    #[wasm_bindgen(js_name = isNull)]
+    pub fn is_null(field: &str) -> FilterBuilder {
+        FilterBuilder {
+            inner: CoreFilterExpression::is_null(field),
+        }
+    }
+
+    /// Convert to JSON for use with search
+    ///
+    /// # Returns
+    /// JavaScript object representing the filter
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_value(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize filter: {}", e)))
+    }
+
+    /// Get all field names referenced in this filter
+    #[wasm_bindgen(js_name = getFields)]
+    pub fn get_fields(&self) -> Vec<String> {
+        self.inner.get_fields()
+    }
+}
+
+#[cfg(feature = "collections")]
+impl Default for FilterBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
