@@ -61,13 +61,14 @@ pub use operations::{
 pub use shaders::ShaderRegistry;
 
 use crate::Result;
+use std::sync::Arc;
 
 /// GPU Accelerator - Main entry point for GPU operations
 ///
 /// Provides unified access to GPU-accelerated operations with automatic
 /// fallback to CPU when GPU is unavailable.
 pub struct GpuAccelerator {
-    backend: Box<dyn GpuBackend>,
+    backend: Arc<dyn GpuBackend>,
     config: GpuConfig,
     pooler: GpuPooler,
     similarity: GpuSimilarity,
@@ -77,12 +78,20 @@ pub struct GpuAccelerator {
 impl GpuAccelerator {
     /// Create a new GPU accelerator with the given configuration
     pub async fn new(config: GpuConfig) -> Result<Self> {
-        let backend = backend::create_backend(&config).await?;
+        let backend: Arc<dyn GpuBackend> = Arc::from(backend::create_backend(&config).await?);
         let shader_registry = ShaderRegistry::new();
 
-        let pooler = GpuPooler::new(backend.as_ref(), &shader_registry)?;
-        let similarity = GpuSimilarity::new(backend.as_ref(), &shader_registry)?;
-        let vector_ops = GpuVectorOps::new(backend.as_ref(), &shader_registry)?;
+        let mut pooler = GpuPooler::new(backend.as_ref(), &shader_registry)?;
+        let mut similarity = GpuSimilarity::new(backend.as_ref(), &shader_registry)?;
+        let mut vector_ops = GpuVectorOps::new(backend.as_ref(), &shader_registry)?;
+
+        // Wire up the backend to all components for GPU dispatch
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
+        {
+            pooler.set_backend(Arc::clone(&backend));
+            similarity.set_backend(Arc::clone(&backend));
+            vector_ops.set_backend(Arc::clone(&backend));
+        }
 
         Ok(Self {
             backend,

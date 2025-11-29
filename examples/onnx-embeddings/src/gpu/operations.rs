@@ -8,7 +8,7 @@ use super::shaders::ShaderRegistry;
 use rayon::prelude::*;
 use std::sync::Arc;
 
-#[cfg(feature = "gpu")]
+#[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
 use bytemuck;
 
 // ==================== GPU Pooler ====================
@@ -16,7 +16,7 @@ use bytemuck;
 /// GPU-accelerated pooling operations
 pub struct GpuPooler {
     use_gpu: bool,
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     backend: Option<Arc<dyn GpuBackend>>,
 }
 
@@ -27,13 +27,13 @@ impl GpuPooler {
 
         Ok(Self {
             use_gpu,
-            #[cfg(feature = "gpu")]
+            #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
             backend: None, // Will be set by GpuAccelerator
         })
     }
 
     /// Set the backend for GPU operations
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     pub fn set_backend(&mut self, backend: Arc<dyn GpuBackend>) {
         self.backend = Some(backend);
     }
@@ -48,7 +48,7 @@ impl GpuPooler {
         hidden_size: usize,
     ) -> Result<Vec<f32>> {
         // GPU implementation requires minimum batch size for efficiency
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && batch_size >= 8 && self.backend.is_some() {
             return self.mean_pool_gpu(token_embeddings, attention_mask, batch_size, seq_length, hidden_size);
         }
@@ -76,7 +76,7 @@ impl GpuPooler {
         seq_length: usize,
         hidden_size: usize,
     ) -> Result<Vec<f32>> {
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && batch_size >= 8 && self.backend.is_some() {
             return self.max_pool_gpu(token_embeddings, attention_mask, batch_size, seq_length, hidden_size);
         }
@@ -86,7 +86,7 @@ impl GpuPooler {
 
     // GPU implementations
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn mean_pool_gpu(
         &self,
         token_embeddings: &[f32],
@@ -149,7 +149,7 @@ impl GpuPooler {
         Ok(output)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn max_pool_gpu(
         &self,
         token_embeddings: &[f32],
@@ -319,7 +319,7 @@ impl GpuPooler {
 pub struct GpuSimilarity {
     use_gpu: bool,
     min_candidates: usize,
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     backend: Option<Arc<dyn GpuBackend>>,
 }
 
@@ -329,20 +329,20 @@ impl GpuSimilarity {
         Ok(Self {
             use_gpu: backend.is_available() && backend.device_info().supports_compute,
             min_candidates: 64, // Minimum candidates to use GPU
-            #[cfg(feature = "gpu")]
+            #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
             backend: None,
         })
     }
 
     /// Set the backend for GPU operations
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     pub fn set_backend(&mut self, backend: Arc<dyn GpuBackend>) {
         self.backend = Some(backend);
     }
 
     /// Batch cosine similarity
     pub fn batch_cosine(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && candidates.len() >= self.min_candidates && self.backend.is_some() {
             return self.batch_cosine_gpu(query, candidates);
         }
@@ -352,7 +352,7 @@ impl GpuSimilarity {
 
     /// Batch dot product
     pub fn batch_dot_product(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && candidates.len() >= self.min_candidates && self.backend.is_some() {
             return self.batch_dot_product_gpu(query, candidates);
         }
@@ -362,7 +362,7 @@ impl GpuSimilarity {
 
     /// Batch Euclidean distance
     pub fn batch_euclidean(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && candidates.len() >= self.min_candidates && self.backend.is_some() {
             return self.batch_euclidean_gpu(query, candidates);
         }
@@ -383,7 +383,7 @@ impl GpuSimilarity {
 
     // GPU implementations
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_cosine_gpu(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
         let backend = self.backend.as_ref().ok_or_else(|| {
             EmbeddingError::GpuOperationFailed {
@@ -435,7 +435,7 @@ impl GpuSimilarity {
         Ok(output)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_dot_product_gpu(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
         let backend = self.backend.as_ref().ok_or_else(|| {
             EmbeddingError::GpuOperationFailed {
@@ -487,7 +487,7 @@ impl GpuSimilarity {
         Ok(output)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_euclidean_gpu(&self, query: &[f32], candidates: &[&[f32]]) -> Result<Vec<f32>> {
         let backend = self.backend.as_ref().ok_or_else(|| {
             EmbeddingError::GpuOperationFailed {
@@ -568,7 +568,7 @@ impl GpuSimilarity {
 /// GPU-accelerated vector operations
 pub struct GpuVectorOps {
     use_gpu: bool,
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     backend: Option<Arc<dyn GpuBackend>>,
 }
 
@@ -577,20 +577,20 @@ impl GpuVectorOps {
     pub fn new(backend: &dyn GpuBackend, _shaders: &ShaderRegistry) -> Result<Self> {
         Ok(Self {
             use_gpu: backend.is_available() && backend.device_info().supports_compute,
-            #[cfg(feature = "gpu")]
+            #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
             backend: None,
         })
     }
 
     /// Set the backend for GPU operations
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     pub fn set_backend(&mut self, backend: Arc<dyn GpuBackend>) {
         self.backend = Some(backend);
     }
 
     /// L2 normalize batch of vectors
     pub fn normalize_batch(&self, vectors: &mut [f32], dimension: usize) -> Result<()> {
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && vectors.len() >= dimension * 64 && self.backend.is_some() {
             return self.normalize_batch_gpu(vectors, dimension);
         }
@@ -601,7 +601,7 @@ impl GpuVectorOps {
 
     /// Matrix-vector multiplication
     pub fn matmul(&self, matrix: &[f32], vector: &[f32], rows: usize, cols: usize) -> Result<Vec<f32>> {
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && rows >= 64 && self.backend.is_some() {
             return self.matmul_gpu(matrix, vector, rows, cols);
         }
@@ -615,7 +615,7 @@ impl GpuVectorOps {
             return Err(EmbeddingError::dimension_mismatch(a.len(), b.len()));
         }
 
-        #[cfg(feature = "gpu")]
+        #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
         if self.use_gpu && a.len() >= 1024 && self.backend.is_some() {
             return self.batch_add_gpu(a, b);
         }
@@ -631,7 +631,7 @@ impl GpuVectorOps {
 
     // GPU implementations
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn normalize_batch_gpu(&self, vectors: &mut [f32], dimension: usize) -> Result<()> {
         let backend = self.backend.as_ref().ok_or_else(|| {
             EmbeddingError::GpuOperationFailed {
@@ -679,7 +679,7 @@ impl GpuVectorOps {
         Ok(())
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn matmul_gpu(&self, matrix: &[f32], vector: &[f32], rows: usize, cols: usize) -> Result<Vec<f32>> {
         let backend = self.backend.as_ref().ok_or_else(|| {
             EmbeddingError::GpuOperationFailed {
@@ -725,7 +725,7 @@ impl GpuVectorOps {
         Ok(output)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", feature = "cuda-wasm"))]
     fn batch_add_gpu(&self, a: &[f32], b: &[f32]) -> Result<Vec<f32>> {
         let backend = self.backend.as_ref().ok_or_else(|| {
             EmbeddingError::GpuOperationFailed {

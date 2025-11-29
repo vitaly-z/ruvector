@@ -730,6 +730,41 @@ impl CudaWasmBackend {
             workgroup_size: [64, 1, 1],
             entry_point: Self::kernel_mean_pool,
         });
+
+        // Euclidean distance kernel
+        kernels.insert("euclidean_distance".to_string(), CudaWasmKernel {
+            name: "euclidean_distance".to_string(),
+            workgroup_size: [256, 1, 1],
+            entry_point: Self::kernel_euclidean_distance,
+        });
+
+        // L2 normalize kernel
+        kernels.insert("l2_normalize".to_string(), CudaWasmKernel {
+            name: "l2_normalize".to_string(),
+            workgroup_size: [256, 1, 1],
+            entry_point: Self::kernel_l2_normalize,
+        });
+
+        // Max pooling kernel
+        kernels.insert("max_pool".to_string(), CudaWasmKernel {
+            name: "max_pool".to_string(),
+            workgroup_size: [64, 1, 1],
+            entry_point: Self::kernel_max_pool,
+        });
+
+        // Matrix-vector multiplication kernel
+        kernels.insert("matmul".to_string(), CudaWasmKernel {
+            name: "matmul".to_string(),
+            workgroup_size: [16, 16, 1],
+            entry_point: Self::kernel_matmul,
+        });
+
+        // Vector addition kernel
+        kernels.insert("vector_add".to_string(), CudaWasmKernel {
+            name: "vector_add".to_string(),
+            workgroup_size: [256, 1, 1],
+            entry_point: Self::kernel_vector_add,
+        });
     }
 
     // ==================== Built-in Kernels ====================
@@ -848,6 +883,188 @@ impl CudaWasmBackend {
                 for val in out_chunk.iter_mut() {
                     *val /= count;
                 }
+            }
+        });
+    }
+
+    fn kernel_euclidean_distance(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
+        if inputs.len() < 4 || inputs[3].len() < 8 {
+            return;
+        }
+
+        let dimension = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
+        let num_candidates = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+
+        if dimension == 0 || num_candidates == 0 {
+            return;
+        }
+
+        let query: &[f32] = bytemuck::cast_slice(inputs[0]);
+        let candidates: &[f32] = bytemuck::cast_slice(inputs[1]);
+        let results: &mut [f32] = bytemuck::cast_slice_mut(output);
+
+        use rayon::prelude::*;
+        results.par_iter_mut().enumerate().take(num_candidates).for_each(|(idx, result)| {
+            let base = idx * dimension;
+            if base + dimension > candidates.len() {
+                *result = 0.0;
+                return;
+            }
+
+            let sum_sq: f32 = (0..dimension.min(query.len()))
+                .map(|i| {
+                    let diff = query[i] - candidates[base + i];
+                    diff * diff
+                })
+                .sum();
+
+            *result = sum_sq.sqrt();
+        });
+    }
+
+    fn kernel_l2_normalize(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
+        if inputs.len() < 4 || inputs[3].len() < 8 {
+            return;
+        }
+
+        let dimension = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
+        let num_vectors = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+
+        if dimension == 0 || num_vectors == 0 {
+            return;
+        }
+
+        let input_vectors: &[f32] = bytemuck::cast_slice(inputs[0]);
+        let output_vectors: &mut [f32] = bytemuck::cast_slice_mut(output);
+
+        use rayon::prelude::*;
+        output_vectors.par_chunks_mut(dimension).enumerate().take(num_vectors).for_each(|(vec_idx, out_chunk)| {
+            let base = vec_idx * dimension;
+            if base + dimension > input_vectors.len() {
+                return;
+            }
+
+            // Compute norm
+            let norm_sq: f32 = (0..dimension)
+                .map(|i| {
+                    let val = input_vectors[base + i];
+                    val * val
+                })
+                .sum();
+
+            let norm = norm_sq.sqrt();
+
+            // Normalize
+            if norm > 1e-12 {
+                for (i, out_val) in out_chunk.iter_mut().enumerate() {
+                    *out_val = input_vectors[base + i] / norm;
+                }
+            } else {
+                for (i, out_val) in out_chunk.iter_mut().enumerate() {
+                    *out_val = input_vectors[base + i];
+                }
+            }
+        });
+    }
+
+    fn kernel_max_pool(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
+        if inputs.len() < 4 || inputs[3].len() < 12 {
+            return;
+        }
+
+        let batch_size = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
+        let seq_length = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+        let hidden_size = u32::from_le_bytes(inputs[3][8..12].try_into().unwrap_or([0; 4])) as usize;
+
+        if batch_size == 0 || seq_length == 0 || hidden_size == 0 {
+            return;
+        }
+
+        let tokens: &[f32] = bytemuck::cast_slice(inputs[0]);
+        let attention_mask: &[i64] = bytemuck::cast_slice(inputs[1]);
+        let results: &mut [f32] = bytemuck::cast_slice_mut(output);
+
+        use rayon::prelude::*;
+        results.par_chunks_mut(hidden_size).enumerate().take(batch_size).for_each(|(batch_idx, out_chunk)| {
+            let tokens_base = batch_idx * seq_length * hidden_size;
+            let mask_base = batch_idx * seq_length;
+
+            out_chunk.fill(f32::NEG_INFINITY);
+            let mut found = false;
+
+            for seq_idx in 0..seq_length {
+                if mask_base + seq_idx < attention_mask.len() && attention_mask[mask_base + seq_idx] == 1 {
+                    let start = tokens_base + seq_idx * hidden_size;
+                    for (j, out_val) in out_chunk.iter_mut().enumerate() {
+                        if start + j < tokens.len() {
+                            let val = tokens[start + j];
+                            if !found || val > *out_val {
+                                *out_val = val;
+                            }
+                        }
+                    }
+                    found = true;
+                }
+            }
+
+            // Replace -inf with 0 if no tokens found
+            if !found {
+                out_chunk.fill(0.0);
+            }
+        });
+    }
+
+    fn kernel_matmul(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
+        if inputs.len() < 4 || inputs[3].len() < 8 {
+            return;
+        }
+
+        let rows = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
+        let cols = u32::from_le_bytes(inputs[3][4..8].try_into().unwrap_or([0; 4])) as usize;
+
+        if rows == 0 || cols == 0 {
+            return;
+        }
+
+        let matrix: &[f32] = bytemuck::cast_slice(inputs[0]);
+        let vector: &[f32] = bytemuck::cast_slice(inputs[1]);
+        let results: &mut [f32] = bytemuck::cast_slice_mut(output);
+
+        use rayon::prelude::*;
+        results.par_iter_mut().enumerate().take(rows).for_each(|(row, result)| {
+            let row_start = row * cols;
+            if row_start + cols > matrix.len() || cols > vector.len() {
+                *result = 0.0;
+                return;
+            }
+
+            *result = (0..cols)
+                .map(|col| matrix[row_start + col] * vector[col])
+                .sum();
+        });
+    }
+
+    fn kernel_vector_add(inputs: &[&[u8]], output: &mut [u8], _params: &CudaWasmParams) {
+        if inputs.len() < 4 || inputs[3].len() < 4 {
+            return;
+        }
+
+        let length = u32::from_le_bytes(inputs[3][0..4].try_into().unwrap_or([0; 4])) as usize;
+
+        if length == 0 {
+            return;
+        }
+
+        let a: &[f32] = bytemuck::cast_slice(inputs[0]);
+        let b: &[f32] = bytemuck::cast_slice(inputs[1]);
+        let results: &mut [f32] = bytemuck::cast_slice_mut(output);
+
+        use rayon::prelude::*;
+        results.par_iter_mut().enumerate().take(length).for_each(|(idx, result)| {
+            if idx < a.len() && idx < b.len() {
+                *result = a[idx] + b[idx];
+            } else {
+                *result = 0.0;
             }
         });
     }
