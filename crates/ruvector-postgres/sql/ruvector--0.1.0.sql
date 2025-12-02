@@ -162,6 +162,124 @@ CREATE AGGREGATE vector_sum(real[]) (
 );
 
 -- ============================================================================
+-- Fast Pre-Normalized Cosine Distance (3x faster)
+-- ============================================================================
+
+-- Cosine distance for pre-normalized vectors (only dot product)
+CREATE OR REPLACE FUNCTION cosine_distance_normalized_arr(a real[], b real[])
+RETURNS real
+AS 'MODULE_PATHNAME', 'cosine_distance_normalized_arr_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- ============================================================================
+-- Temporal Compression Functions
+-- ============================================================================
+
+-- Compute delta between two consecutive vectors
+CREATE OR REPLACE FUNCTION temporal_delta(current real[], previous real[])
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'temporal_delta_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Reconstruct vector from delta and previous vector
+CREATE OR REPLACE FUNCTION temporal_undelta(delta real[], previous real[])
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'temporal_undelta_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Exponential moving average update
+CREATE OR REPLACE FUNCTION temporal_ema_update(current real[], ema_prev real[], alpha real)
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'temporal_ema_update_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Compute temporal drift (rate of change)
+CREATE OR REPLACE FUNCTION temporal_drift(v1 real[], v2 real[], time_delta real)
+RETURNS real
+AS 'MODULE_PATHNAME', 'temporal_drift_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Compute velocity (first derivative)
+CREATE OR REPLACE FUNCTION temporal_velocity(v_t0 real[], v_t1 real[], dt real)
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'temporal_velocity_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- ============================================================================
+-- Attention Mechanism Functions
+-- ============================================================================
+
+-- Compute scaled attention score between query and key
+CREATE OR REPLACE FUNCTION attention_score(query real[], key real[])
+RETURNS real
+AS 'MODULE_PATHNAME', 'attention_score_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Apply softmax to scores array
+CREATE OR REPLACE FUNCTION attention_softmax(scores real[])
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'attention_softmax_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Weighted vector addition for attention
+CREATE OR REPLACE FUNCTION attention_weighted_add(accumulator real[], value real[], weight real)
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'attention_weighted_add_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Initialize attention accumulator
+CREATE OR REPLACE FUNCTION attention_init(dim int)
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'attention_init_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Compute single attention (returns JSON with score and value)
+CREATE OR REPLACE FUNCTION attention_single(query real[], key real[], value real[], score_offset real)
+RETURNS jsonb
+AS 'MODULE_PATHNAME', 'attention_single_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- ============================================================================
+-- Graph Traversal Functions
+-- ============================================================================
+
+-- Compute edge similarity between two vectors
+CREATE OR REPLACE FUNCTION graph_edge_similarity(source real[], target real[])
+RETURNS real
+AS 'MODULE_PATHNAME', 'graph_edge_similarity_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- PageRank contribution calculation
+CREATE OR REPLACE FUNCTION graph_pagerank_contribution(importance real, num_neighbors int, damping real)
+RETURNS real
+AS 'MODULE_PATHNAME', 'graph_pagerank_contribution_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- PageRank base importance
+CREATE OR REPLACE FUNCTION graph_pagerank_base(num_nodes int, damping real)
+RETURNS real
+AS 'MODULE_PATHNAME', 'graph_pagerank_base_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Check semantic connection
+CREATE OR REPLACE FUNCTION graph_is_connected(v1 real[], v2 real[], threshold real)
+RETURNS boolean
+AS 'MODULE_PATHNAME', 'graph_is_connected_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Centroid update for clustering
+CREATE OR REPLACE FUNCTION graph_centroid_update(centroid real[], neighbor real[], weight real)
+RETURNS real[]
+AS 'MODULE_PATHNAME', 'graph_centroid_update_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- Bipartite matching score for RAG
+CREATE OR REPLACE FUNCTION graph_bipartite_score(query real[], node real[], edge_weight real)
+RETURNS real
+AS 'MODULE_PATHNAME', 'graph_bipartite_score_wrapper'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- ============================================================================
 -- Comments
 -- ============================================================================
 
@@ -170,6 +288,7 @@ COMMENT ON FUNCTION ruvector_simd_info() IS 'Returns SIMD capability information
 COMMENT ON FUNCTION ruvector_memory_stats() IS 'Returns memory statistics for the extension';
 COMMENT ON FUNCTION l2_distance_arr(real[], real[]) IS 'Compute L2 (Euclidean) distance between two vectors';
 COMMENT ON FUNCTION cosine_distance_arr(real[], real[]) IS 'Compute cosine distance between two vectors';
+COMMENT ON FUNCTION cosine_distance_normalized_arr(real[], real[]) IS 'Fast cosine distance for pre-normalized vectors (3x faster)';
 COMMENT ON FUNCTION inner_product_arr(real[], real[]) IS 'Compute inner product between two vectors';
 COMMENT ON FUNCTION l1_distance_arr(real[], real[]) IS 'Compute L1 (Manhattan) distance between two vectors';
 COMMENT ON FUNCTION vector_normalize(real[]) IS 'Normalize a vector to unit length';
@@ -180,3 +299,19 @@ COMMENT ON FUNCTION vector_dims(real[]) IS 'Get vector dimensions';
 COMMENT ON FUNCTION vector_norm(real[]) IS 'Get vector L2 norm';
 COMMENT ON FUNCTION binary_quantize_arr(real[]) IS 'Binary quantize a vector (32x compression)';
 COMMENT ON FUNCTION scalar_quantize_arr(real[]) IS 'Scalar quantize a vector (4x compression)';
+COMMENT ON FUNCTION temporal_delta(real[], real[]) IS 'Compute delta between consecutive vectors for compression';
+COMMENT ON FUNCTION temporal_undelta(real[], real[]) IS 'Reconstruct vector from delta encoding';
+COMMENT ON FUNCTION temporal_ema_update(real[], real[], real) IS 'Exponential moving average update step';
+COMMENT ON FUNCTION temporal_drift(real[], real[], real) IS 'Compute temporal drift (rate of change) between vectors';
+COMMENT ON FUNCTION temporal_velocity(real[], real[], real) IS 'Compute velocity (first derivative) of vector';
+COMMENT ON FUNCTION attention_score(real[], real[]) IS 'Compute scaled attention score between query and key';
+COMMENT ON FUNCTION attention_softmax(real[]) IS 'Apply softmax to scores array';
+COMMENT ON FUNCTION attention_weighted_add(real[], real[], real) IS 'Weighted vector addition for attention';
+COMMENT ON FUNCTION attention_init(int) IS 'Initialize zero-vector accumulator for attention';
+COMMENT ON FUNCTION attention_single(real[], real[], real[], real) IS 'Single key-value attention with score';
+COMMENT ON FUNCTION graph_edge_similarity(real[], real[]) IS 'Compute edge similarity (cosine) between vectors';
+COMMENT ON FUNCTION graph_pagerank_contribution(real, int, real) IS 'Calculate PageRank contribution to neighbors';
+COMMENT ON FUNCTION graph_pagerank_base(int, real) IS 'Initialize PageRank base importance';
+COMMENT ON FUNCTION graph_is_connected(real[], real[], real) IS 'Check if vectors are semantically connected';
+COMMENT ON FUNCTION graph_centroid_update(real[], real[], real) IS 'Update centroid with neighbor contribution';
+COMMENT ON FUNCTION graph_bipartite_score(real[], real[], real) IS 'Compute bipartite matching score for RAG';

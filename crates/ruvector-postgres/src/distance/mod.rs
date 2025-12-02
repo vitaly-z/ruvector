@@ -252,6 +252,14 @@ pub fn distance(a: &[f32], b: &[f32], metric: DistanceMetric) -> f32 {
     }
 }
 
+/// Fast cosine distance for pre-normalized vectors
+/// Only computes dot product (avoids norm calculation)
+#[inline]
+pub fn cosine_distance_normalized(a: &[f32], b: &[f32]) -> f32 {
+    debug_assert_eq!(a.len(), b.len(), "Vector dimensions must match");
+    simd::cosine_distance_normalized(a, b)
+}
+
 /// Batch distance calculation with parallelism
 pub fn batch_distances(
     query: &[f32],

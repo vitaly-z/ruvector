@@ -149,6 +149,227 @@ pub fn vector_avg2(a: Vec<f32>, b: Vec<f32>) -> Vec<f32> {
 }
 
 // ============================================================================
+// Fast Pre-Normalized Cosine Distance
+// ============================================================================
+
+/// Compute fast cosine distance for pre-normalized vectors
+/// Only computes dot product (3x faster than regular cosine)
+#[pg_extern(immutable, parallel_safe)]
+pub fn cosine_distance_normalized_arr(a: Vec<f32>, b: Vec<f32>) -> f32 {
+    if a.len() != b.len() {
+        pgrx::error!(
+            "Cannot compute distance between vectors of different dimensions ({} vs {})",
+            a.len(),
+            b.len()
+        );
+    }
+    crate::distance::cosine_distance_normalized(&a, &b)
+}
+
+// ============================================================================
+// Temporal Compression Functions (Time-Series Vector Optimization)
+// ============================================================================
+
+/// Compute delta between two consecutive vectors (for temporal compression)
+#[pg_extern(immutable, parallel_safe)]
+pub fn temporal_delta(current: Vec<f32>, previous: Vec<f32>) -> Vec<f32> {
+    if current.len() != previous.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    current.iter().zip(previous.iter()).map(|(c, p)| c - p).collect()
+}
+
+/// Reconstruct vector from delta and previous vector
+#[pg_extern(immutable, parallel_safe)]
+pub fn temporal_undelta(delta: Vec<f32>, previous: Vec<f32>) -> Vec<f32> {
+    if delta.len() != previous.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    delta.iter().zip(previous.iter()).map(|(d, p)| d + p).collect()
+}
+
+/// Compute exponential moving average update
+/// Returns: alpha * current + (1-alpha) * ema_prev
+#[pg_extern(immutable, parallel_safe)]
+pub fn temporal_ema_update(current: Vec<f32>, ema_prev: Vec<f32>, alpha: f32) -> Vec<f32> {
+    if current.len() != ema_prev.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    if alpha <= 0.0 || alpha > 1.0 {
+        pgrx::error!("Alpha must be in (0, 1]");
+    }
+
+    current.iter()
+        .zip(ema_prev.iter())
+        .map(|(c, e)| alpha * c + (1.0 - alpha) * e)
+        .collect()
+}
+
+/// Compute temporal drift (rate of change) between vectors
+#[pg_extern(immutable, parallel_safe)]
+pub fn temporal_drift(v1: Vec<f32>, v2: Vec<f32>, time_delta: f32) -> f32 {
+    if v1.len() != v2.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    if time_delta <= 0.0 {
+        pgrx::error!("Time delta must be positive");
+    }
+
+    euclidean_distance(&v1, &v2) / time_delta
+}
+
+/// Compute vector velocity (first derivative approximation)
+#[pg_extern(immutable, parallel_safe)]
+pub fn temporal_velocity(v_t0: Vec<f32>, v_t1: Vec<f32>, dt: f32) -> Vec<f32> {
+    if v_t0.len() != v_t1.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    if dt <= 0.0 {
+        pgrx::error!("Time delta must be positive");
+    }
+
+    v_t1.iter().zip(v_t0.iter()).map(|(t1, t0)| (t1 - t0) / dt).collect()
+}
+
+// ============================================================================
+// Attention Mechanism Functions (Scaled Dot-Product Attention)
+// ============================================================================
+
+/// Compute scaled dot-product attention score between query and single key
+/// Returns (Q·K) / sqrt(d_k) - use with aggregate for multiple keys
+#[pg_extern(immutable, parallel_safe)]
+pub fn attention_score(query: Vec<f32>, key: Vec<f32>) -> f32 {
+    if query.len() != key.len() {
+        pgrx::error!("Query and key must have same dimensions");
+    }
+    let dim = query.len();
+    let scale = (dim as f32).sqrt();
+    let dot: f32 = query.iter().zip(key.iter()).map(|(q, k)| q * k).sum();
+    dot / scale
+}
+
+/// Apply softmax to array of scores
+#[pg_extern(immutable, parallel_safe)]
+pub fn attention_softmax(scores: Vec<f32>) -> Vec<f32> {
+    if scores.is_empty() {
+        return vec![];
+    }
+
+    let max_score = scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let exp_scores: Vec<f32> = scores.iter().map(|s| (s - max_score).exp()).collect();
+    let sum: f32 = exp_scores.iter().sum();
+
+    exp_scores.iter().map(|s| s / sum).collect()
+}
+
+/// Weighted vector combination: result = weight * value + accumulator
+/// Use iteratively to apply attention weights
+#[pg_extern(immutable, parallel_safe)]
+pub fn attention_weighted_add(accumulator: Vec<f32>, value: Vec<f32>, weight: f32) -> Vec<f32> {
+    if accumulator.len() != value.len() {
+        pgrx::error!("Accumulator and value must have same dimensions");
+    }
+    accumulator.iter()
+        .zip(value.iter())
+        .map(|(a, v)| a + weight * v)
+        .collect()
+}
+
+/// Initialize attention accumulator (zero vector)
+#[pg_extern(immutable, parallel_safe)]
+pub fn attention_init(dim: i32) -> Vec<f32> {
+    vec![0.0f32; dim as usize]
+}
+
+/// Compute attention between query and single key-value pair
+/// Returns weighted value: softmax_weight * value (for use with sum aggregate)
+#[pg_extern(immutable, parallel_safe)]
+pub fn attention_single(query: Vec<f32>, key: Vec<f32>, value: Vec<f32>, score_offset: f32) -> pgrx::JsonB {
+    if query.len() != key.len() {
+        pgrx::error!("Query and key must have same dimensions");
+    }
+    let dim = query.len();
+    let scale = (dim as f32).sqrt();
+    let raw_score: f32 = query.iter().zip(key.iter()).map(|(q, k)| q * k).sum::<f32>() / scale;
+
+    pgrx::JsonB(serde_json::json!({
+        "score": raw_score,
+        "value": value,
+        "score_offset": score_offset
+    }))
+}
+
+// ============================================================================
+// Graph Traversal Utilities (For Vector + Graph Hybrid Queries)
+// ============================================================================
+
+/// Compute edge similarity between two vectors (for graph edge weighting)
+#[pg_extern(immutable, parallel_safe)]
+pub fn graph_edge_similarity(source: Vec<f32>, target: Vec<f32>) -> f32 {
+    if source.len() != target.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    1.0 - cosine_distance(&source, &target)
+}
+
+/// Compute PageRank contribution from a node to its neighbors
+/// Returns contribution per neighbor: damping * importance / num_neighbors
+#[pg_extern(immutable, parallel_safe)]
+pub fn graph_pagerank_contribution(importance: f32, num_neighbors: i32, damping: f32) -> f32 {
+    if num_neighbors <= 0 {
+        return 0.0;
+    }
+    if damping < 0.0 || damping > 1.0 {
+        pgrx::error!("Damping factor must be in [0, 1]");
+    }
+    damping * importance / (num_neighbors as f32)
+}
+
+/// Initialize PageRank base importance
+#[pg_extern(immutable, parallel_safe)]
+pub fn graph_pagerank_base(num_nodes: i32, damping: f32) -> f32 {
+    if num_nodes <= 0 {
+        pgrx::error!("Number of nodes must be positive");
+    }
+    if damping < 0.0 || damping > 1.0 {
+        pgrx::error!("Damping factor must be in [0, 1]");
+    }
+    (1.0 - damping) / (num_nodes as f32)
+}
+
+/// Check if two vectors are semantically connected (similarity >= threshold)
+#[pg_extern(immutable, parallel_safe)]
+pub fn graph_is_connected(v1: Vec<f32>, v2: Vec<f32>, threshold: f32) -> bool {
+    if v1.len() != v2.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    let sim = 1.0 - cosine_distance(&v1, &v2);
+    sim >= threshold
+}
+
+/// Compute weighted centroid update (for graph-based clustering)
+#[pg_extern(immutable, parallel_safe)]
+pub fn graph_centroid_update(centroid: Vec<f32>, neighbor: Vec<f32>, weight: f32) -> Vec<f32> {
+    if centroid.len() != neighbor.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    centroid.iter()
+        .zip(neighbor.iter())
+        .map(|(c, n)| c + weight * (n - c))
+        .collect()
+}
+
+/// Compute bipartite matching score (for RAG graph queries)
+#[pg_extern(immutable, parallel_safe)]
+pub fn graph_bipartite_score(query: Vec<f32>, node: Vec<f32>, edge_weight: f32) -> f32 {
+    if query.len() != node.len() {
+        pgrx::error!("Vectors must have same dimensions");
+    }
+    let sim = 1.0 - cosine_distance(&query, &node);
+    sim * edge_weight
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

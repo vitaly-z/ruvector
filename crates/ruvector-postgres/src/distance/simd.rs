@@ -1214,6 +1214,147 @@ pub fn inner_product_neon_wrapper(a: &[f32], b: &[f32]) -> f32 {
 }
 
 // ============================================================================
+// Optimized Pre-Normalized Cosine Distance (Just Dot Product)
+// When vectors are already normalized, cosine distance = 1 - dot_product
+// ============================================================================
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+#[inline]
+/// Cosine distance for pre-normalized vectors (AVX-512)
+/// Much faster as it only computes dot product: 1 - dot(a, b)
+///
+/// # Safety
+/// - `a` and `b` must be valid for reads of `len` elements
+/// - Vectors must be pre-normalized to unit length for correct results
+pub unsafe fn cosine_distance_normalized_avx512(a: *const f32, b: *const f32, len: usize) -> f32 {
+    debug_assert!(!a.is_null() && !b.is_null() && len > 0);
+
+    let mut dot = _mm512_setzero_ps();
+    let chunks = len / 16;
+
+    for i in 0..chunks {
+        let offset = i * 16;
+        let va = _mm512_loadu_ps(a.add(offset));
+        let vb = _mm512_loadu_ps(b.add(offset));
+        dot = _mm512_fmadd_ps(va, vb, dot);
+    }
+
+    let mut result = _mm512_reduce_add_ps(dot);
+
+    // Handle remainder
+    for i in (chunks * 16)..len {
+        result += *a.add(i) * *b.add(i);
+    }
+
+    // For normalized vectors: cosine_distance = 1 - dot_product
+    1.0 - result
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2", enable = "fma")]
+#[inline]
+/// Cosine distance for pre-normalized vectors (AVX2)
+pub unsafe fn cosine_distance_normalized_avx2(a: *const f32, b: *const f32, len: usize) -> f32 {
+    debug_assert!(!a.is_null() && !b.is_null() && len > 0);
+
+    let mut dot = _mm256_setzero_ps();
+    let chunks = len / 8;
+
+    for i in 0..chunks {
+        let offset = i * 8;
+        let va = _mm256_loadu_ps(a.add(offset));
+        let vb = _mm256_loadu_ps(b.add(offset));
+        dot = _mm256_fmadd_ps(va, vb, dot);
+    }
+
+    let mut result = horizontal_sum_256(dot);
+
+    for i in (chunks * 8)..len {
+        result += *a.add(i) * *b.add(i);
+    }
+
+    1.0 - result
+}
+
+/// Cosine distance for pre-normalized vectors (scalar)
+#[inline]
+pub unsafe fn cosine_distance_normalized_scalar(a: *const f32, b: *const f32, len: usize) -> f32 {
+    debug_assert!(!a.is_null() && !b.is_null() && len > 0);
+
+    let mut dot = 0.0f32;
+    for i in 0..len {
+        dot += *a.add(i) * *b.add(i);
+    }
+
+    1.0 - dot
+}
+
+/// Pre-normalized cosine distance (auto-dispatched)
+#[inline]
+pub unsafe fn cosine_distance_normalized_ptr(a: *const f32, b: *const f32, len: usize) -> f32 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx512f") {
+            return cosine_distance_normalized_avx512(a, b, len);
+        }
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+            return cosine_distance_normalized_avx2(a, b, len);
+        }
+    }
+
+    cosine_distance_normalized_scalar(a, b, len)
+}
+
+/// Pre-normalized cosine distance (slice version)
+pub fn cosine_distance_normalized(a: &[f32], b: &[f32]) -> f32 {
+    debug_assert_eq!(a.len(), b.len());
+    unsafe { cosine_distance_normalized_ptr(a.as_ptr(), b.as_ptr(), a.len()) }
+}
+
+// ============================================================================
+// Batch Operations for Multiple Vectors (Efficient for K-NN)
+// ============================================================================
+
+/// Compute top-k nearest neighbors with L2 distance
+#[inline]
+pub unsafe fn l2_topk_batch(
+    query: *const f32,
+    vectors: &[*const f32],
+    len: usize,
+    k: usize,
+) -> Vec<(usize, f32)> {
+    let mut results: Vec<(usize, f32)> = vectors
+        .iter()
+        .enumerate()
+        .map(|(i, &ptr)| (i, l2_distance_ptr(query, ptr, len)))
+        .collect();
+
+    results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    results.truncate(k);
+    results
+}
+
+/// Compute top-k nearest neighbors with normalized cosine distance
+#[inline]
+pub unsafe fn cosine_topk_normalized_batch(
+    query: *const f32,
+    vectors: &[*const f32],
+    len: usize,
+    k: usize,
+) -> Vec<(usize, f32)> {
+    let mut results: Vec<(usize, f32)> = vectors
+        .iter()
+        .enumerate()
+        .map(|(i, &ptr)| (i, cosine_distance_normalized_ptr(query, ptr, len)))
+        .collect();
+
+    results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    results.truncate(k);
+    results
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
