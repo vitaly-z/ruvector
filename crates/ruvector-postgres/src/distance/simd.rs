@@ -322,14 +322,24 @@ unsafe fn manhattan_distance_avx512(a: &[f32], b: &[f32]) -> f32 {
 
 // ============================================================================
 // AVX-512 Public Wrappers with Runtime Detection
+// Note: AVX-512 requires simd-avx512 feature (nightly Rust)
 // ============================================================================
 
 /// Euclidean distance with AVX-512 (falls back to AVX2 if not available)
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 pub fn euclidean_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
     if is_x86_feature_detected!("avx512f") {
         unsafe { euclidean_distance_avx512(a, b) }
     } else if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        unsafe { euclidean_distance_avx2(a, b) }
+    } else {
+        scalar::euclidean_distance(a, b)
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", not(feature = "simd-avx512")))]
+pub fn euclidean_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
+    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe { euclidean_distance_avx2(a, b) }
     } else {
         scalar::euclidean_distance(a, b)
@@ -342,11 +352,20 @@ pub fn euclidean_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Cosine distance with AVX-512 (falls back to AVX2 if not available)
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 pub fn cosine_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
     if is_x86_feature_detected!("avx512f") {
         unsafe { cosine_distance_avx512(a, b) }
     } else if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        unsafe { cosine_distance_avx2(a, b) }
+    } else {
+        scalar::cosine_distance(a, b)
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", not(feature = "simd-avx512")))]
+pub fn cosine_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
+    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe { cosine_distance_avx2(a, b) }
     } else {
         scalar::cosine_distance(a, b)
@@ -359,11 +378,20 @@ pub fn cosine_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Inner product with AVX-512 (falls back to AVX2 if not available)
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 pub fn inner_product_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
     if is_x86_feature_detected!("avx512f") {
         unsafe { inner_product_avx512(a, b) }
     } else if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+        unsafe { inner_product_avx2(a, b) }
+    } else {
+        scalar::inner_product_distance(a, b)
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", not(feature = "simd-avx512")))]
+pub fn inner_product_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
+    if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
         unsafe { inner_product_avx2(a, b) }
     } else {
         scalar::inner_product_distance(a, b)
@@ -376,11 +404,20 @@ pub fn inner_product_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Manhattan distance with AVX-512 (falls back to AVX2 if not available)
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", feature = "simd-avx512"))]
 pub fn manhattan_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
     if is_x86_feature_detected!("avx512f") {
         unsafe { manhattan_distance_avx512(a, b) }
     } else if is_x86_feature_detected!("avx2") {
+        unsafe { manhattan_distance_avx2(a, b) }
+    } else {
+        scalar::manhattan_distance(a, b)
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", not(feature = "simd-avx512")))]
+pub fn manhattan_distance_avx512_wrapper(a: &[f32], b: &[f32]) -> f32 {
+    if is_x86_feature_detected!("avx2") {
         unsafe { manhattan_distance_avx2(a, b) }
     } else {
         scalar::manhattan_distance(a, b)

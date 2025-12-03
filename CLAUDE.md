@@ -344,6 +344,20 @@ Message 4: Write "file.js"
 
 Remember: **Claude Flow coordinates, Claude Code creates!**
 
+## 🔑 Environment & Secrets
+
+**IMPORTANT**: The root `.env` file contains API keys for publishing:
+- `CRATES_API_KEY` - For publishing to crates.io
+- Other API keys as needed
+
+**Usage for publishing**:
+```bash
+# Source the .env and publish to crates.io
+source .env && CARGO_REGISTRY_TOKEN=$CRATES_API_KEY cargo publish --no-verify
+```
+
+**NEVER hardcode keys. ALWAYS use `.env` file.**
+
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
