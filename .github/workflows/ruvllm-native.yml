@@ -79,22 +79,36 @@ jobs:
         shell: bash
         run: |
           cd examples/ruvLLM
-          napi build --platform --release --target ${{ matrix.target }} --features napi
+          # Use cargo directly with --lib to avoid building binaries
+          cargo build --release --lib --features napi --target ${{ matrix.target }}
+          # napi artifacts command to copy the output
+          napi artifacts --build-output-dir ../../target/${{ matrix.target }}/release || true
 
       - name: Copy artifact (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p npm/packages/${{ matrix.npm_package }}
-          cp examples/ruvLLM/ruvllm.*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }} || \
-          cp examples/ruvLLM/*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          # Try napi output first, then cargo output
+          if ls examples/ruvLLM/*.node 1>/dev/null 2>&1; then
+            cp examples/ruvLLM/*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          elif [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ] || [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            cp target/${{ matrix.target }}/release/libruvllm.so npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          else
+            cp target/${{ matrix.target }}/release/libruvllm.dylib npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          fi
 
       - name: Copy artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path npm/packages/${{ matrix.npm_package }}
-          Copy-Item examples/ruvLLM/*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          # Try napi output first, then cargo output
+          if (Test-Path examples/ruvLLM/*.node) {
+            Copy-Item examples/ruvLLM/*.node npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          } else {
+            Copy-Item target/${{ matrix.target }}/release/ruvllm.dll npm/packages/${{ matrix.npm_package }}/${{ matrix.node_file }}
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
