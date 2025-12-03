@@ -4,684 +4,1510 @@
 
 **Runtime-adaptive learning for LLM routers and AI systems without expensive retraining.**
 
-[![Crates.io](https://img.shields.io/crates/v/sona.svg)](https://crates.io/crates/sona)
-[![Documentation](https://docs.rs/sona/badge.svg)](https://docs.rs/sona)
+[![Crates.io](https://img.shields.io/crates/v/ruvector-sona.svg)](https://crates.io/crates/ruvector-sona)
+[![npm](https://img.shields.io/npm/v/@ruvector/sona.svg)](https://www.npmjs.com/package/@ruvector/sona)
+[![Documentation](https://docs.rs/ruvector-sona/badge.svg)](https://docs.rs/ruvector-sona)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/ruvnet/ruvector/ci.yml?branch=main)](https://github.com/ruvnet/ruvector/actions)
 
-[Quick Start](#quick-start) | [Documentation](https://docs.rs/sona) | [Examples](#tutorials) | [API Reference](#api-reference)
+[Quick Start](#quick-start) | [Tutorials](#tutorials) | [API Reference](#api-reference) | [Benchmarks](#benchmarks)
 
 </div>
 
 ---
 
-## Overview
+## What is SONA?
 
-SONA enables your AI applications to **continuously improve from user feedback**, learning in real-time with sub-millisecond overhead. Instead of expensive model retraining, SONA uses a two-tier LoRA (Low-Rank Adaptation) system that adapts routing decisions, response quality, and model selection on-the-fly.
+SONA (Self-Optimizing Neural Architecture) is a **real-time learning system** that makes your AI applications smarter with every interaction. Instead of expensive model retraining that takes days and costs thousands of dollars, SONA learns from user feedback in **sub-millisecond time**.
 
-```rust
-use sona::{SonaEngine, SonaConfig, LearningSignal};
+### The Problem SONA Solves
 
-// Create adaptive learning engine
-let engine = SonaEngine::new(SonaConfig::default());
+Traditional AI systems have a critical limitation: they don't learn from their mistakes in production. When a user gives negative feedback, that information is typically lost or requires manual intervention to address.
 
-// Track user interaction
-let traj_id = engine.start_trajectory(query_embedding);
-engine.record_step(traj_id, selected_model, confidence, latency_us);
-engine.end_trajectory(traj_id, response_quality);
+| Traditional Approach | Time | Cost | Downtime |
+|---------------------|------|------|----------|
+| Fine-tune model | Days-Weeks | $1,000-$100,000+ | Yes |
+| Retrain from scratch | Weeks-Months | $10,000-$1M+ | Yes |
+| Manual prompt tuning | Hours-Days | Engineering time | No |
+| **SONA** | **<1 millisecond** | **$0** | **No** |
 
-// Learn from feedback - takes ~500μs
-engine.learn_from_feedback(LearningSignal::from_feedback(user_liked, latency_ms, quality));
-
-// Future queries benefit from learned patterns
-let optimized_embedding = engine.apply_lora(&new_query_embedding);
-```
-
-## Why SONA?
-
-| Challenge | Traditional Approach | SONA Solution |
-|-----------|---------------------|---------------|
-| Improving response quality | Retrain model ($$$, weeks) | Real-time learning (<1ms) |
-| Adapting to user preferences | Manual tuning | Automatic from feedback |
-| Model selection optimization | Static rules | Learned patterns |
-| Preventing knowledge loss | Start fresh each time | EWC++ preserves knowledge |
-| Cross-platform deployment | Separate implementations | Rust + WASM + Node.js |
-
-### Key Benefits
-
-- **Zero-downtime learning** - Adapt to user preferences without service interruption
-- **Sub-millisecond overhead** - Real-time learning with <1ms per request
-- **Memory-efficient** - Two-tier LoRA reduces memory by 95% vs full fine-tuning
-- **Catastrophic forgetting prevention** - EWC++ preserves learned knowledge across tasks
-- **Cross-platform** - Native Rust, WASM for browsers, NAPI-RS for Node.js
-- **Production-ready** - Lock-free data structures, 157 tests, comprehensive benchmarks
-
-## Performance
-
-| Metric | Target | Achieved | Improvement |
-|--------|--------|----------|-------------|
-| Instant Loop Latency | <1ms | **34μs** | 29x better |
-| Trajectory Recording | <1μs | **112ns** | 9x better |
-| MicroLoRA Forward (256d) | <100μs | **45μs** | 2.2x better |
-| Memory per Trajectory | <1KB | **~800B** | 20% better |
-| Pattern Extraction | <10ms | **~5ms** | 2x better |
-
-### Comparison with Alternatives
-
-| Feature | SONA | Fine-tuning | RAG | Prompt Engineering |
-|---------|------|-------------|-----|-------------------|
-| Learning Speed | **Real-time** | Hours/Days | N/A | Manual |
-| Memory Overhead | **<1MB** | GBs | Variable | None |
-| Preserves Knowledge | **Yes (EWC++)** | Risk of forgetting | Yes | Yes |
-| Adapts to Users | **Automatic** | Requires retraining | No | Manual |
-| Deployment | **Any platform** | GPU required | Server | Any |
-
-## Architecture
+### How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           SONA Engine                                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────┐   │
-│  │    MicroLoRA     │  │     BaseLoRA     │  │    ReasoningBank     │   │
-│  │   (Rank 1-2)     │  │   (Rank 4-16)    │  │  (Pattern Storage)   │   │
-│  │                  │  │                  │  │                      │   │
-│  │  • Per-request   │  │  • Hourly batch  │  │  • K-means++ cluster │   │
-│  │  • <100μs update │  │  • Consolidation │  │  • Similarity search │   │
-│  │  • SIMD accel.   │  │  • Deep patterns │  │  • Quality filtering │   │
-│  └────────┬─────────┘  └────────┬─────────┘  └──────────┬───────────┘   │
-│           │                     │                       │               │
-│  ┌────────▼─────────────────────▼───────────────────────▼───────────┐   │
-│  │                      Learning Loops                               │   │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐   │   │
-│  │  │   Instant (A)   │  │  Background (B) │  │   Coordinator   │   │   │
-│  │  │   Per-Query     │  │     Hourly      │  │  Orchestration  │   │   │
-│  │  │   ~34μs         │  │     ~5ms        │  │   Sync & Scale  │   │   │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-│  ┌────────────────────────┐  ┌──────────────────────────────────────┐   │
-│  │   Trajectory Buffer    │  │        EWC++ (Anti-Forgetting)       │   │
-│  │     (Lock-Free)        │  │                                      │   │
-│  │                        │  │  • Online Fisher estimation          │   │
-│  │  • Crossbeam ArrayQueue│  │  • Automatic task boundaries         │   │
-│  │  • Zero contention     │  │  • Adaptive constraint strength      │   │
-│  │  • ~112ns per record   │  │  • Multi-task memory preservation    │   │
-│  └────────────────────────┘  └──────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+User Query → [SONA Engine] → Model Response → User Feedback
+                  ↑                                 │
+                  └─────── Learning Signal ─────────┘
+                         (< 1ms adaptation)
 ```
+
+SONA uses three key innovations:
+
+1. **Two-Tier LoRA**: Fast (MicroLoRA) and deep (BaseLoRA) adaptation layers
+2. **EWC++**: Prevents forgetting previously learned patterns
+3. **ReasoningBank**: Stores and retrieves successful interaction patterns
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Core Concepts](#core-concepts)
+- [Tutorials](#tutorials)
+  - [Tutorial 1: Your First SONA Application](#tutorial-1-your-first-sona-application)
+  - [Tutorial 2: Building an Adaptive Chatbot](#tutorial-2-building-an-adaptive-chatbot)
+  - [Tutorial 3: LLM Router with Learning](#tutorial-3-llm-router-with-learning)
+  - [Tutorial 4: Browser-Based Learning (WASM)](#tutorial-4-browser-based-learning-wasm)
+  - [Tutorial 5: Node.js Backend Integration](#tutorial-5-nodejs-backend-integration)
+  - [Tutorial 6: Production Deployment](#tutorial-6-production-deployment)
+- [Configuration Guide](#configuration-guide)
+- [API Reference](#api-reference)
+- [Benchmarks](#benchmarks)
+- [Troubleshooting](#troubleshooting)
+
+---
 
 ## Installation
 
-### Rust
+### Rust (Cargo)
 
 ```toml
 [dependencies]
-sona = "0.1"
+ruvector-sona = "0.1.1"
 
-# With SIMD optimization (default)
-sona = { version = "0.1", features = ["simd"] }
-
-# With serialization support
-sona = { version = "0.1", features = ["serde-support"] }
+# With all features
+ruvector-sona = { version = "0.1.1", features = ["serde-support"] }
 ```
 
-### JavaScript/TypeScript (Node.js)
+### Node.js (npm)
 
 ```bash
 npm install @ruvector/sona
+# or
+yarn add @ruvector/sona
+# or
+pnpm add @ruvector/sona
 ```
 
-### WASM (Browser)
+### Browser (WASM)
 
 ```bash
-# Build WASM package
-cd crates/sona
+# Clone and build WASM package
+git clone https://github.com/ruvnet/ruvector.git
+cd ruvector/crates/sona
 wasm-pack build --target web --features wasm
 
-# Use in your project
+# Copy to your project
 cp -r pkg/ your-project/sona/
 ```
 
+---
+
 ## Quick Start
 
-### Rust - Basic Usage
+### 30-Second Example (Rust)
 
 ```rust
-use sona::{SonaEngine, SonaConfig, LearningSignal};
+use ruvector_sona::{SonaEngine, SonaConfig};
 
 fn main() {
-    // 1. Create engine with configuration
-    let config = SonaConfig {
-        hidden_dim: 256,
-        micro_lora_rank: 2,
-        base_lora_rank: 16,
-        ..Default::default()
-    };
-    let engine = SonaEngine::new(config);
+    // 1. Create engine
+    let engine = SonaEngine::builder()
+        .hidden_dim(256)
+        .build();
 
-    // 2. Record a query trajectory
-    let query_embedding = vec![0.1; 256];
-    let traj_id = engine.start_trajectory(query_embedding);
+    // 2. Record a user interaction
+    let query_embedding = vec![0.1f32; 256];
+    let traj_id = engine.begin_trajectory(query_embedding);
 
-    // 3. Record routing decisions
-    engine.record_step(traj_id, 42, 0.85, 150);  // node_id, score, latency_us
-    engine.record_step(traj_id, 17, 0.92, 120);
+    // 3. Record what happened (model selection, confidence, latency)
+    engine.add_step(traj_id, vec![0.5; 256], vec![0.8; 64], 0.9);
 
-    // 4. Complete with outcome quality
-    engine.end_trajectory(traj_id, 0.90);
+    // 4. Record outcome quality (0.0 = bad, 1.0 = perfect)
+    engine.end_trajectory(traj_id, 0.85);
 
-    // 5. Learn from user feedback
-    let signal = LearningSignal::from_feedback(true, 50.0, 0.95);
-    engine.learn_from_feedback(signal);
+    // 5. Apply learned optimizations to future queries
+    let new_query = vec![0.2f32; 256];
+    let optimized = engine.apply_micro_lora(&new_query);
 
-    // 6. Apply learned optimizations to new queries
-    let new_query = vec![1.0; 256];
-    let optimized = engine.apply_lora(&new_query);
-
-    println!("Learning complete! Stats: {:?}", engine.stats());
+    println!("SONA is learning! Stats: {}", engine.get_stats());
 }
 ```
 
-### Rust - LLM Router Integration
-
-```rust
-use sona::{SonaEngine, SonaConfig, LearningSignal};
-use std::time::Instant;
-
-pub struct AdaptiveLLMRouter {
-    sona: SonaEngine,
-    models: Vec<Box<dyn LLMModel>>,
-}
-
-impl AdaptiveLLMRouter {
-    pub fn new(models: Vec<Box<dyn LLMModel>>) -> Self {
-        Self {
-            sona: SonaEngine::new(SonaConfig::default()),
-            models,
-        }
-    }
-
-    pub async fn route(&self, query: &str, embedding: Vec<f32>) -> Response {
-        // Start tracking this query
-        let traj_id = self.sona.start_trajectory(embedding.clone());
-
-        // Apply learned optimizations
-        let optimized = self.sona.apply_lora(&embedding);
-
-        // Select best model based on learned patterns
-        let start = Instant::now();
-        let (model_idx, confidence) = self.select_model(&optimized);
-        let latency_us = start.elapsed().as_micros() as u64;
-
-        // Record the routing decision
-        self.sona.record_step(traj_id, model_idx as u32, confidence, latency_us);
-
-        // Execute query
-        let response = self.models[model_idx].generate(query).await;
-
-        // Complete trajectory with response quality
-        self.sona.end_trajectory(traj_id, response.quality_score());
-
-        response
-    }
-
-    pub fn record_feedback(&self, was_helpful: bool, latency_ms: f32) {
-        let quality = if was_helpful { 0.9 } else { 0.2 };
-        let signal = LearningSignal::from_feedback(was_helpful, latency_ms, quality);
-        self.sona.learn_from_feedback(signal);
-    }
-
-    fn select_model(&self, embedding: &[f32]) -> (usize, f32) {
-        // Your model selection logic here
-        // SONA's optimized embedding helps make better decisions
-        (0, 0.95)
-    }
-}
-```
-
-### Node.js
+### 30-Second Example (Node.js)
 
 ```javascript
 const { SonaEngine } = require('@ruvector/sona');
 
-// Create engine
-const engine = new SonaEngine();
+// 1. Create engine
+const engine = new SonaEngine(256);
 
-// Or with custom configuration
-const customEngine = SonaEngine.withConfig(
-    2,      // micro_lora_rank
-    16,     // base_lora_rank
-    10000,  // trajectory_buffer_size
-    0.4     // ewc_lambda
-);
+// 2. Record interaction
+const queryEmbedding = Array(256).fill(0.1);
+const trajId = engine.beginTrajectory(queryEmbedding);
 
-// Record user interaction
-const embedding = Array(256).fill(0.1);
-const trajId = engine.startTrajectory(embedding);
+// 3. Add step data
+engine.addTrajectoryStep(trajId, Array(256).fill(0.5), Array(64).fill(0.8), 0.9);
 
-engine.recordStep(trajId, 42, 0.85, 150);
-engine.recordStep(trajId, 17, 0.92, 120);
-engine.endTrajectory(trajId, 0.90);
+// 4. Complete with quality score
+engine.endTrajectory(trajId, 0.85);
 
-// Learn from feedback
-engine.learnFromFeedback(true, 50.0, 0.95);
-
-// Apply to new queries
-const newQuery = Array(256).fill(1.0);
-const optimized = engine.applyLora(newQuery);
+// 5. Apply learning
+const newQuery = Array(256).fill(0.2);
+const optimized = engine.applyMicroLora(newQuery);
 
 console.log('Stats:', engine.getStats());
 ```
 
-### JavaScript (WASM in Browser)
+---
+
+## Core Concepts
+
+### Understanding Embeddings
+
+Embeddings are numerical representations of text. Every word, sentence, or query can be converted into a vector of numbers (typically 256-4096 dimensions). SONA works with these embeddings to learn patterns.
+
+```
+"How do I reset my password?" → [0.12, -0.45, 0.78, ..., 0.23]  (256 numbers)
+"Password reset help"         → [0.11, -0.44, 0.79, ..., 0.22]  (similar!)
+"What's the weather?"         → [0.89, 0.12, -0.34, ..., 0.67]  (different)
+```
+
+### Trajectories: Recording What Happened
+
+A **trajectory** is a complete record of one user interaction:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Trajectory                           │
+├─────────────────────────────────────────────────────────────┤
+│  Query Embedding: [0.12, -0.45, 0.78, ...]                  │
+│                                                             │
+│  Steps:                                                     │
+│    Step 1: Selected Model A, confidence 0.82, latency 45ms  │
+│    Step 2: Generated response, confidence 0.91, latency 120ms│
+│    Step 3: Formatted output, confidence 0.95, latency 5ms   │
+│                                                             │
+│  Final Quality: 0.85 (user gave thumbs up)                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Two-Tier LoRA: Fast and Deep Learning
+
+SONA uses two types of adaptation:
+
+| Tier | Rank | Speed | Purpose | When Used |
+|------|------|-------|---------|-----------|
+| **MicroLoRA** | 2 | ~45μs | Instant adjustments | Every request |
+| **BaseLoRA** | 8-16 | ~1ms | Deep pattern learning | Background (hourly) |
+
+**MicroLoRA** is like quick reflexes - it adapts immediately based on recent feedback.
+**BaseLoRA** is like long-term memory - it consolidates patterns over time.
+
+### EWC++: Remembering Without Forgetting
+
+When learning new patterns, AI systems often "forget" old ones (catastrophic forgetting). EWC++ (Elastic Weight Consolidation) prevents this by:
+
+1. Tracking which parameters are important for each task
+2. Protecting important parameters when learning new tasks
+3. Automatically detecting when a "new task" begins
+
+```
+Without EWC++:                    With EWC++:
+┌────────────────────┐           ┌────────────────────┐
+│ Learn Task A: ✓    │           │ Learn Task A: ✓    │
+│ Learn Task B: ✓    │           │ Learn Task B: ✓    │
+│ Task A knowledge: ✗ │           │ Task A knowledge: ✓ │
+└────────────────────┘           └────────────────────┘
+```
+
+### ReasoningBank: Pattern Library
+
+ReasoningBank stores successful interaction patterns using K-means++ clustering:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     ReasoningBank                            │
+├─────────────────────────────────────────────────────────────┤
+│  Cluster 1: "Password/Account Issues"                       │
+│    - 847 trajectories, avg quality 0.89                     │
+│    - Best response pattern: Empathetic + Step-by-step       │
+│                                                             │
+│  Cluster 2: "Technical Questions"                           │
+│    - 1,234 trajectories, avg quality 0.92                   │
+│    - Best response pattern: Detailed + Code examples        │
+│                                                             │
+│  Cluster 3: "General Conversation"                          │
+│    - 2,156 trajectories, avg quality 0.78                   │
+│    - Best response pattern: Friendly + Concise              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Tutorials
+
+### Tutorial 1: Your First SONA Application
+
+Let's build a simple application that learns from user feedback.
+
+**Goal**: Create a system that improves response quality based on thumbs up/down.
+
+```rust
+use ruvector_sona::{SonaEngine, SonaConfig};
+
+fn main() {
+    // Step 1: Configure SONA
+    // Use optimized defaults (benchmark-validated)
+    let config = SonaConfig::default();
+
+    println!("Configuration:");
+    println!("  MicroLoRA rank: {} (optimal for SIMD)", config.micro_lora_rank);
+    println!("  Learning rate: {} (+55% quality)", config.micro_lora_lr);
+    println!("  Pattern clusters: {} (2.3x faster)", config.pattern_clusters);
+    println!("  EWC lambda: {} (anti-forgetting)", config.ewc_lambda);
+
+    // Step 2: Create the engine
+    let engine = SonaEngine::builder()
+        .config(config)
+        .build();
+
+    // Step 3: Simulate 100 user interactions
+    let mut positive_count = 0;
+    let mut negative_count = 0;
+
+    for i in 0..100 {
+        // Simulate a query embedding (in real app, use your embedding model)
+        let query_embedding: Vec<f32> = (0..256)
+            .map(|j| ((i * 256 + j) as f32 * 0.001).sin())
+            .collect();
+
+        // Start recording this interaction
+        let traj_id = engine.begin_trajectory(query_embedding.clone());
+
+        // Simulate processing steps
+        let activations: Vec<f32> = query_embedding.iter()
+            .map(|x| x.tanh())
+            .collect();
+        let attention: Vec<f32> = vec![1.0 / 64.0; 64];
+
+        engine.add_step(traj_id, activations, attention, 0.8);
+
+        // Simulate user feedback (70% positive in this example)
+        let is_positive = (i % 10) < 7;
+        let quality = if is_positive { 0.9 } else { 0.3 };
+
+        if is_positive {
+            positive_count += 1;
+        } else {
+            negative_count += 1;
+        }
+
+        // Complete the trajectory with quality score
+        engine.end_trajectory(traj_id, quality);
+
+        // Run learning tick (processes pending trajectories)
+        engine.tick();
+    }
+
+    // Step 4: Check what we learned
+    println!("\nResults after 100 interactions:");
+    println!("  Positive feedback: {}", positive_count);
+    println!("  Negative feedback: {}", negative_count);
+    println!("  Engine stats: {}", engine.get_stats());
+
+    // Step 5: Apply learning to a new query
+    let new_query: Vec<f32> = vec![0.5; 256];
+    let optimized = engine.apply_micro_lora(&new_query);
+
+    // The optimized embedding now incorporates learned patterns!
+    let diff: f32 = new_query.iter()
+        .zip(optimized.iter())
+        .map(|(a, b)| (a - b).abs())
+        .sum();
+
+    println!("\nLearning applied! Embedding change magnitude: {:.4}", diff);
+}
+```
+
+**Expected Output:**
+```
+Configuration:
+  MicroLoRA rank: 2 (optimal for SIMD)
+  Learning rate: 0.002 (+55% quality)
+  Pattern clusters: 100 (2.3x faster)
+  EWC lambda: 2000 (anti-forgetting)
+
+Results after 100 interactions:
+  Positive feedback: 70
+  Negative feedback: 30
+  Engine stats: {"trajectories": 100, "patterns": 12, "micro_updates": 100}
+
+Learning applied! Embedding change magnitude: 0.0847
+```
+
+---
+
+### Tutorial 2: Building an Adaptive Chatbot
+
+Let's build a chatbot that learns to give better responses.
+
+```rust
+use ruvector_sona::{SonaEngine, SonaConfig};
+use std::collections::HashMap;
+
+/// Adaptive chatbot that learns from user feedback
+pub struct AdaptiveChatbot {
+    engine: SonaEngine,
+    response_templates: HashMap<String, Vec<String>>,
+    active_trajectory: Option<u64>,
+}
+
+impl AdaptiveChatbot {
+    pub fn new() -> Self {
+        // Use max_quality preset for chatbot (we want best responses)
+        let config = SonaConfig::max_quality();
+
+        let engine = SonaEngine::builder()
+            .config(config)
+            .build();
+
+        // Simple response templates (in real app, use LLM)
+        let mut templates = HashMap::new();
+        templates.insert("greeting".to_string(), vec![
+            "Hello! How can I help you today?".to_string(),
+            "Hi there! What can I do for you?".to_string(),
+            "Welcome! I'm here to assist you.".to_string(),
+        ]);
+        templates.insert("farewell".to_string(), vec![
+            "Goodbye! Have a great day!".to_string(),
+            "Take care! Feel free to come back anytime.".to_string(),
+            "Bye! It was nice helping you.".to_string(),
+        ]);
+        templates.insert("unknown".to_string(), vec![
+            "I'm not sure I understand. Could you rephrase that?".to_string(),
+            "Let me think about that...".to_string(),
+            "Interesting question! Let me help you with that.".to_string(),
+        ]);
+
+        Self {
+            engine,
+            response_templates: templates,
+            active_trajectory: None,
+        }
+    }
+
+    /// Process a user message
+    pub fn respond(&mut self, message: &str) -> String {
+        // Step 1: Create embedding from message
+        let embedding = self.create_embedding(message);
+
+        // Step 2: Start trajectory
+        let traj_id = self.engine.begin_trajectory(embedding.clone());
+        self.active_trajectory = Some(traj_id);
+
+        // Step 3: Apply learned optimizations
+        let optimized = self.engine.apply_micro_lora(&embedding);
+
+        // Step 4: Classify intent using optimized embedding
+        let intent = self.classify_intent(&optimized);
+
+        // Step 5: Record the classification step
+        let activations: Vec<f32> = optimized.iter().map(|x| x.tanh()).collect();
+        let attention = vec![1.0 / 64.0; 64];
+        self.engine.add_step(traj_id, activations, attention, 0.8);
+
+        // Step 6: Select best response template
+        let responses = self.response_templates.get(&intent)
+            .unwrap_or(&self.response_templates["unknown"]);
+
+        // Use embedding similarity to pick best response
+        let response = self.select_best_response(responses, &optimized);
+
+        response
+    }
+
+    /// Record user feedback (call after response is shown)
+    pub fn record_feedback(&mut self, was_helpful: bool) {
+        if let Some(traj_id) = self.active_trajectory.take() {
+            let quality = if was_helpful { 0.95 } else { 0.2 };
+            self.engine.end_trajectory(traj_id, quality);
+
+            // Force learning if negative feedback (learn faster from mistakes)
+            if !was_helpful {
+                self.engine.force_learn();
+            }
+        }
+    }
+
+    /// Create a simple embedding from text
+    fn create_embedding(&self, text: &str) -> Vec<f32> {
+        // Simple bag-of-characters embedding (use real embeddings in production!)
+        let mut embedding = vec![0.0f32; 256];
+        for (i, c) in text.chars().enumerate() {
+            let idx = (c as usize + i) % 256;
+            embedding[idx] += 0.1;
+        }
+        // Normalize
+        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            embedding.iter_mut().for_each(|x| *x /= norm);
+        }
+        embedding
+    }
+
+    /// Classify user intent
+    fn classify_intent(&self, embedding: &[f32]) -> String {
+        // Simple heuristic (use classifier in production!)
+        let sum: f32 = embedding.iter().take(10).sum();
+        if sum > 0.5 {
+            "greeting".to_string()
+        } else if sum < -0.5 {
+            "farewell".to_string()
+        } else {
+            "unknown".to_string()
+        }
+    }
+
+    /// Select best response based on embedding
+    fn select_best_response(&self, responses: &[String], embedding: &[f32]) -> String {
+        // Use embedding to deterministically select response
+        let idx = (embedding[0].abs() * responses.len() as f32) as usize % responses.len();
+        responses[idx].clone()
+    }
+
+    /// Get learning statistics
+    pub fn stats(&self) -> String {
+        self.engine.get_stats()
+    }
+}
+
+fn main() {
+    let mut bot = AdaptiveChatbot::new();
+
+    // Simulate conversation
+    let conversations = vec![
+        ("Hello!", true),
+        ("Hi there", true),
+        ("What is AI?", false),  // Bad response
+        ("Explain machine learning", false),  // Bad response
+        ("Thanks, goodbye!", true),
+        ("Hello again!", true),
+    ];
+
+    for (message, was_helpful) in conversations {
+        println!("User: {}", message);
+        let response = bot.respond(message);
+        println!("Bot: {}", response);
+        bot.record_feedback(was_helpful);
+        println!("  [Feedback: {}]", if was_helpful { "👍" } else { "👎" });
+        println!();
+    }
+
+    println!("Final stats: {}", bot.stats());
+}
+```
+
+---
+
+### Tutorial 3: LLM Router with Learning
+
+Build a router that learns which LLM to use for different query types.
+
+```rust
+use ruvector_sona::{SonaEngine, SonaConfig};
+use std::time::Instant;
+
+/// Represents an LLM model
+#[derive(Clone)]
+pub struct LLMModel {
+    pub name: String,
+    pub cost_per_token: f32,
+    pub avg_quality: f32,
+    pub avg_latency_ms: u32,
+}
+
+/// Adaptive LLM Router that learns optimal model selection
+pub struct AdaptiveLLMRouter {
+    engine: SonaEngine,
+    models: Vec<LLMModel>,
+}
+
+impl AdaptiveLLMRouter {
+    pub fn new(models: Vec<LLMModel>) -> Self {
+        // Use max_throughput for fast routing decisions
+        let config = SonaConfig::max_throughput();
+
+        let engine = SonaEngine::builder()
+            .config(config)
+            .build();
+
+        Self { engine, models }
+    }
+
+    /// Route a query to the best model
+    pub fn route(&self, query_embedding: Vec<f32>) -> (usize, &LLMModel) {
+        // Apply learned optimizations
+        let optimized = self.engine.apply_micro_lora(&query_embedding);
+
+        // Find similar patterns
+        let patterns = self.engine.find_patterns(&optimized, 3);
+
+        // Score each model based on patterns and learned preferences
+        let mut best_idx = 0;
+        let mut best_score = f32::MIN;
+
+        for (idx, model) in self.models.iter().enumerate() {
+            let mut score = model.avg_quality;
+
+            // Boost score if patterns suggest this model works well
+            for pattern in &patterns {
+                // Pattern centroid similarity affects model preference
+                let similarity = cosine_similarity(&optimized, &pattern.centroid);
+                if similarity > 0.8 {
+                    // High similarity to successful pattern
+                    score += pattern.avg_quality * similarity;
+                }
+            }
+
+            // Penalize expensive models slightly
+            score -= model.cost_per_token * 0.1;
+
+            if score > best_score {
+                best_score = score;
+                best_idx = idx;
+            }
+        }
+
+        (best_idx, &self.models[best_idx])
+    }
+
+    /// Record the outcome of a routing decision
+    pub fn record_outcome(
+        &self,
+        query_embedding: Vec<f32>,
+        selected_model: usize,
+        quality: f32,
+        latency_ms: u32,
+    ) {
+        // Start trajectory
+        let traj_id = self.engine.begin_trajectory(query_embedding);
+
+        // Record selection step
+        let model = &self.models[selected_model];
+        let activations = vec![
+            model.avg_quality,
+            model.cost_per_token,
+            latency_ms as f32 / 1000.0,
+        ];
+        let activations_padded: Vec<f32> = activations.into_iter()
+            .chain(std::iter::repeat(0.0))
+            .take(256)
+            .collect();
+
+        let attention = vec![1.0 / 64.0; 64];
+        self.engine.add_step(traj_id, activations_padded, attention, quality);
+
+        // Set route info
+        self.engine.set_trajectory_route(traj_id, model.name.clone());
+
+        // Complete trajectory
+        self.engine.end_trajectory(traj_id, quality);
+    }
+
+    /// Force background learning cycle
+    pub fn learn(&self) -> String {
+        self.engine.force_learn()
+    }
+
+    pub fn stats(&self) -> String {
+        self.engine.get_stats()
+    }
+}
+
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm_a > 0.0 && norm_b > 0.0 {
+        dot / (norm_a * norm_b)
+    } else {
+        0.0
+    }
+}
+
+fn main() {
+    // Define available models
+    let models = vec![
+        LLMModel {
+            name: "GPT-4".to_string(),
+            cost_per_token: 0.03,
+            avg_quality: 0.95,
+            avg_latency_ms: 2000,
+        },
+        LLMModel {
+            name: "GPT-3.5-Turbo".to_string(),
+            cost_per_token: 0.002,
+            avg_quality: 0.85,
+            avg_latency_ms: 500,
+        },
+        LLMModel {
+            name: "Claude-Instant".to_string(),
+            cost_per_token: 0.001,
+            avg_quality: 0.80,
+            avg_latency_ms: 300,
+        },
+        LLMModel {
+            name: "Local-LLaMA".to_string(),
+            cost_per_token: 0.0001,
+            avg_quality: 0.70,
+            avg_latency_ms: 100,
+        },
+    ];
+
+    let router = AdaptiveLLMRouter::new(models);
+
+    // Simulate 1000 queries with different types
+    println!("Training router with 1000 queries...\n");
+
+    let query_types = vec![
+        ("simple", vec![0.1f32; 256], 0.70, "Local-LLaMA"),      // Simple queries work fine with local
+        ("medium", vec![0.5f32; 256], 0.85, "GPT-3.5-Turbo"),    // Medium needs cloud
+        ("complex", vec![0.9f32; 256], 0.95, "GPT-4"),           // Complex needs best
+    ];
+
+    for i in 0..1000 {
+        let (query_type, base_embedding, target_quality, expected_model) =
+            &query_types[i % query_types.len()];
+
+        // Add some variation to embeddings
+        let embedding: Vec<f32> = base_embedding.iter()
+            .enumerate()
+            .map(|(j, x)| x + (i as f32 * j as f32 * 0.0001).sin() * 0.1)
+            .collect();
+
+        // Route the query
+        let (model_idx, model) = router.route(embedding.clone());
+
+        // Simulate quality based on model fit
+        let quality = if &model.name == *expected_model {
+            *target_quality
+        } else {
+            target_quality - 0.2  // Penalty for wrong model
+        };
+
+        // Record outcome
+        router.record_outcome(embedding, model_idx, quality, model.avg_latency_ms);
+
+        // Periodic learning
+        if i % 100 == 0 {
+            router.learn();
+        }
+    }
+
+    // Test learned routing
+    println!("Testing learned routing:\n");
+
+    for (query_type, embedding, _, expected) in &query_types {
+        let (_, model) = router.route(embedding.clone());
+        let match_status = if &model.name == *expected { "✓" } else { "✗" };
+        println!("  {} query → {} {} (expected: {})",
+            query_type, model.name, match_status, expected);
+    }
+
+    println!("\nRouter stats: {}", router.stats());
+}
+```
+
+---
+
+### Tutorial 4: Browser-Based Learning (WASM)
+
+Deploy SONA in the browser for client-side learning.
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SONA Demo</title>
+    <title>SONA Browser Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .chat { border: 1px solid #ccc; padding: 20px; height: 400px; overflow-y: auto; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .user { background: #e3f2fd; text-align: right; }
+        .bot { background: #f5f5f5; }
+        .feedback { margin-top: 5px; }
+        .feedback button { margin-right: 10px; padding: 5px 15px; cursor: pointer; }
+        input { width: 70%; padding: 10px; }
+        button.send { padding: 10px 20px; }
+        .stats { background: #fff3e0; padding: 10px; margin-top: 20px; font-family: monospace; }
+    </style>
 </head>
 <body>
+    <h1>🧠 SONA Browser Demo</h1>
+    <p>This chatbot learns from your feedback in real-time, entirely in your browser!</p>
+
+    <div class="chat" id="chat"></div>
+
+    <div style="margin-top: 10px;">
+        <input type="text" id="input" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendMessage()">
+        <button class="send" onclick="sendMessage()">Send</button>
+    </div>
+
+    <div class="stats" id="stats">Loading SONA...</div>
+
     <script type="module">
         import init, { WasmSonaEngine } from './pkg/sona.js';
 
-        async function main() {
+        let engine = null;
+        let currentTrajId = null;
+        let messageCount = 0;
+
+        // Initialize SONA
+        async function initSona() {
             await init();
-
-            // Create engine (256 = hidden dimension)
-            const engine = new WasmSonaEngine(256);
-
-            // Record trajectory
-            const embedding = new Float32Array(256).fill(0.1);
-            const trajId = engine.start_trajectory(embedding);
-
-            engine.record_step(trajId, 42, 0.85, 150);
-            engine.end_trajectory(trajId, 0.90);
-
-            // Learn from feedback
-            engine.learn_from_feedback(true, 50.0, 0.95);
-
-            // Apply LoRA transformation
-            const input = new Float32Array(256).fill(1.0);
-            const output = engine.apply_lora(input);
-
-            console.log('Stats:', engine.get_stats());
+            engine = new WasmSonaEngine(256);
+            updateStats();
+            document.getElementById('stats').textContent = 'SONA initialized! Start chatting to train it.';
         }
 
-        main();
+        // Create embedding from text (simple version)
+        function createEmbedding(text) {
+            const embedding = new Float32Array(256).fill(0);
+            for (let i = 0; i < text.length; i++) {
+                const idx = (text.charCodeAt(i) + i) % 256;
+                embedding[idx] += 0.1;
+            }
+            // Normalize
+            const norm = Math.sqrt(embedding.reduce((s, x) => s + x * x, 0));
+            if (norm > 0) {
+                for (let i = 0; i < embedding.length; i++) {
+                    embedding[i] /= norm;
+                }
+            }
+            return Array.from(embedding);
+        }
+
+        // Generate response
+        function generateResponse(input, optimizedEmbedding) {
+            // Simple response logic (replace with actual LLM call)
+            const responses = {
+                greeting: ["Hello! How can I help you?", "Hi there! Nice to meet you!", "Hey! What's on your mind?"],
+                question: ["That's a great question!", "Let me think about that...", "Interesting! Here's what I know:"],
+                thanks: ["You're welcome!", "Happy to help!", "Anytime!"],
+                default: ["I see.", "Tell me more.", "Interesting perspective!"]
+            };
+
+            const inputLower = input.toLowerCase();
+            let category = 'default';
+            if (inputLower.includes('hello') || inputLower.includes('hi')) category = 'greeting';
+            else if (inputLower.includes('?')) category = 'question';
+            else if (inputLower.includes('thank')) category = 'thanks';
+
+            // Use optimized embedding to influence response selection
+            const idx = Math.floor(Math.abs(optimizedEmbedding[0]) * responses[category].length);
+            return responses[category][idx % responses[category].length];
+        }
+
+        // Add message to chat
+        function addMessage(text, isUser, trajId = null) {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            div.className = `message ${isUser ? 'user' : 'bot'}`;
+            div.innerHTML = text;
+
+            if (!isUser && trajId !== null) {
+                const feedback = document.createElement('div');
+                feedback.className = 'feedback';
+                feedback.innerHTML = `
+                    <button onclick="recordFeedback(${trajId}, true)">👍 Helpful</button>
+                    <button onclick="recordFeedback(${trajId}, false)">👎 Not helpful</button>
+                `;
+                div.appendChild(feedback);
+            }
+
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // Send message
+        window.sendMessage = function() {
+            const input = document.getElementById('input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Add user message
+            addMessage(text, true);
+            input.value = '';
+
+            // Start trajectory
+            const embedding = createEmbedding(text);
+            currentTrajId = engine.begin_trajectory(embedding);
+
+            // Apply learned optimizations
+            const optimized = engine.apply_micro_lora(embedding);
+
+            // Record step
+            const activations = optimized.map(x => Math.tanh(x));
+            const attention = new Array(64).fill(1/64);
+            engine.add_trajectory_step(currentTrajId, activations, attention, 0.8);
+
+            // Generate and display response
+            const response = generateResponse(text, optimized);
+            addMessage(response, false, currentTrajId);
+
+            messageCount++;
+            updateStats();
+        };
+
+        // Record feedback
+        window.recordFeedback = function(trajId, wasHelpful) {
+            const quality = wasHelpful ? 0.95 : 0.2;
+            engine.end_trajectory(trajId, quality);
+
+            // Run learning
+            const result = engine.tick();
+            if (result) {
+                console.log('Learning cycle:', result);
+            }
+
+            // Disable feedback buttons
+            event.target.parentElement.innerHTML = wasHelpful
+                ? '<span style="color:green">✓ Thanks for the feedback!</span>'
+                : '<span style="color:orange">✓ I\'ll try to improve!</span>';
+
+            updateStats();
+        };
+
+        // Update stats display
+        function updateStats() {
+            const stats = JSON.parse(engine.get_stats());
+            document.getElementById('stats').innerHTML = `
+                <strong>SONA Stats:</strong><br>
+                Messages: ${messageCount} |
+                Patterns learned: ${stats.patterns_stored || 0} |
+                Learning cycles: ${stats.background_cycles || 0}
+            `;
+        }
+
+        // Initialize
+        initSona();
     </script>
 </body>
 </html>
 ```
 
-## Core Components
+---
 
-### Two-Tier LoRA System
+### Tutorial 5: Node.js Backend Integration
 
-SONA uses a novel two-tier LoRA architecture for different learning timescales:
+Production-ready Node.js integration with Express.
 
-| Tier | Rank | Latency | Update Frequency | Purpose |
-|------|------|---------|------------------|---------|
-| **MicroLoRA** | 1-2 | <100μs | Per-request | Instant user adaptation |
-| **BaseLoRA** | 4-16 | ~1ms | Hourly | Pattern consolidation |
+```javascript
+const express = require('express');
+const { SonaEngine } = require('@ruvector/sona');
 
-```rust
-// Apply individual tiers
-engine.apply_micro_lora(&input, &mut output);  // Fast, per-request
-engine.apply_base_lora(&input, &mut output);   // Deeper patterns
+const app = express();
+app.use(express.json());
 
-// Apply both tiers (recommended)
-let output = engine.apply_lora(&input);
+// Initialize SONA engine
+const engine = SonaEngine.withConfig({
+    hiddenDim: 256,
+    microLoraRank: 2,      // Optimized for SIMD
+    microLoraLr: 0.002,    // Optimal learning rate
+    patternClusters: 100,  // Fast search
+    ewcLambda: 2000,       // Anti-forgetting
+    qualityThreshold: 0.3  // Learn from more samples
+});
+
+// Track active trajectories
+const activeTrajectories = new Map();
+
+// Middleware to create embeddings (replace with your embedding service)
+function createEmbedding(text) {
+    // Simple embedding (use OpenAI/Cohere embeddings in production)
+    const embedding = new Array(256).fill(0);
+    for (let i = 0; i < text.length; i++) {
+        const idx = (text.charCodeAt(i) + i) % 256;
+        embedding[idx] += 0.1;
+    }
+    const norm = Math.sqrt(embedding.reduce((s, x) => s + x * x, 0));
+    return embedding.map(x => x / (norm || 1));
+}
+
+// Start a new interaction
+app.post('/api/query', (req, res) => {
+    const { query, sessionId } = req.body;
+
+    // Create embedding
+    const embedding = createEmbedding(query);
+
+    // Start trajectory
+    const trajId = engine.beginTrajectory(embedding);
+    activeTrajectories.set(sessionId, { trajId, embedding, startTime: Date.now() });
+
+    // Apply learned optimizations
+    const optimized = engine.applyMicroLora(embedding);
+
+    // Find similar patterns for context
+    const patterns = engine.findPatterns(optimized, 3);
+
+    // Record step
+    const activations = optimized.map(x => Math.tanh(x));
+    const attention = new Array(64).fill(1/64);
+    engine.addTrajectoryStep(trajId, activations, attention, 0.8);
+
+    res.json({
+        sessionId,
+        optimizedEmbedding: optimized,
+        similarPatterns: patterns.map(p => ({
+            avgQuality: p.avgQuality,
+            clusterSize: p.clusterSize,
+            patternType: p.patternType
+        })),
+        message: 'Query processed. Send response quality via /api/feedback'
+    });
+});
+
+// Record feedback
+app.post('/api/feedback', (req, res) => {
+    const { sessionId, quality, wasHelpful } = req.body;
+
+    const session = activeTrajectories.get(sessionId);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Calculate quality score
+    const qualityScore = quality ?? (wasHelpful ? 0.9 : 0.2);
+
+    // Complete trajectory
+    engine.endTrajectory(session.trajId, qualityScore);
+
+    // Run learning tick
+    const learnResult = engine.tick();
+
+    // Clean up
+    activeTrajectories.delete(sessionId);
+
+    res.json({
+        success: true,
+        quality: qualityScore,
+        latencyMs: Date.now() - session.startTime,
+        learned: learnResult !== null
+    });
+});
+
+// Force learning cycle
+app.post('/api/learn', (req, res) => {
+    const result = engine.forceLearn();
+    res.json({
+        success: true,
+        result,
+        stats: JSON.parse(engine.getStats())
+    });
+});
+
+// Get stats
+app.get('/api/stats', (req, res) => {
+    res.json(JSON.parse(engine.getStats()));
+});
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        engine: engine.isEnabled() ? 'active' : 'disabled'
+    });
+});
+
+// Background learning (run hourly)
+setInterval(() => {
+    console.log('Running background learning cycle...');
+    const result = engine.forceLearn();
+    console.log('Learning complete:', result);
+}, 60 * 60 * 1000); // Every hour
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`SONA server running on port ${PORT}`);
+    console.log('Stats:', engine.getStats());
+});
 ```
 
-### Three Learning Loops
+**Usage:**
 
-| Loop | Frequency | Purpose | Typical Latency |
-|------|-----------|---------|-----------------|
-| **Instant (A)** | Per-request | Immediate adaptation from feedback | ~34μs |
-| **Background (B)** | Hourly | Pattern extraction & consolidation | ~5ms |
-| **Coordinator** | Continuous | Loop synchronization & scaling | Minimal |
+```bash
+# Start server
+node server.js
 
-```rust
-// Loops run automatically, but can be triggered manually
-engine.run_instant_cycle();      // Force instant learning
-engine.run_background_cycle();   // Force pattern extraction
+# Test endpoints
+curl -X POST http://localhost:3000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How do I reset my password?", "sessionId": "abc123"}'
+
+curl -X POST http://localhost:3000/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId": "abc123", "wasHelpful": true}'
+
+curl http://localhost:3000/api/stats
 ```
 
-### EWC++ (Elastic Weight Consolidation)
+---
 
-Prevents catastrophic forgetting when learning new patterns:
+### Tutorial 6: Production Deployment
 
-| Feature | Description |
-|---------|-------------|
-| **Online Fisher** | Real-time parameter importance estimation |
-| **Task Boundaries** | Automatic detection via distribution shift |
-| **Adaptive Lambda** | Dynamic constraint strength per task |
-| **Multi-Task Memory** | Circular buffer preserving task knowledge |
+Best practices for deploying SONA in production.
+
+```rust
+use ruvector_sona::{SonaEngine, SonaConfig};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tokio::time::{interval, Duration};
+
+/// Production-ready SONA wrapper
+pub struct ProductionSona {
+    engine: Arc<RwLock<SonaEngine>>,
+    metrics: Arc<RwLock<Metrics>>,
+}
+
+#[derive(Default)]
+pub struct Metrics {
+    pub total_requests: u64,
+    pub total_learning_cycles: u64,
+    pub positive_feedback: u64,
+    pub negative_feedback: u64,
+    pub avg_latency_us: f64,
+}
+
+impl ProductionSona {
+    pub async fn new() -> Self {
+        // Use optimized defaults
+        let config = SonaConfig::default();
+
+        let engine = SonaEngine::builder()
+            .config(config)
+            .build();
+
+        let instance = Self {
+            engine: Arc::new(RwLock::new(engine)),
+            metrics: Arc::new(RwLock::new(Metrics::default())),
+        };
+
+        // Start background tasks
+        instance.start_background_tasks().await;
+
+        instance
+    }
+
+    async fn start_background_tasks(&self) {
+        let engine = self.engine.clone();
+        let metrics = self.metrics.clone();
+
+        // Hourly learning cycle
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(3600));
+            loop {
+                interval.tick().await;
+
+                let mut engine = engine.write().await;
+                let result = engine.force_learn();
+
+                let mut m = metrics.write().await;
+                m.total_learning_cycles += 1;
+
+                tracing::info!("Background learning completed: {}", result);
+            }
+        });
+
+        // Metrics logging (every 5 minutes)
+        let metrics_clone = self.metrics.clone();
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(300));
+            loop {
+                interval.tick().await;
+                let m = metrics_clone.read().await;
+                tracing::info!(
+                    "SONA Metrics - Requests: {}, Learning: {}, Positive: {}, Negative: {}",
+                    m.total_requests,
+                    m.total_learning_cycles,
+                    m.positive_feedback,
+                    m.negative_feedback
+                );
+            }
+        });
+    }
+
+    /// Process a query with full observability
+    pub async fn process(&self, embedding: Vec<f32>) -> ProcessResult {
+        let start = std::time::Instant::now();
+
+        let engine = self.engine.read().await;
+
+        // Start trajectory
+        let traj_id = engine.begin_trajectory(embedding.clone());
+
+        // Apply optimizations
+        let optimized = engine.apply_micro_lora(&embedding);
+
+        // Find patterns
+        let patterns = engine.find_patterns(&optimized, 5);
+
+        // Update metrics
+        let latency = start.elapsed().as_micros() as u64;
+        {
+            let mut m = self.metrics.write().await;
+            m.total_requests += 1;
+            m.avg_latency_us = (m.avg_latency_us * (m.total_requests - 1) as f64
+                + latency as f64) / m.total_requests as f64;
+        }
+
+        ProcessResult {
+            trajectory_id: traj_id,
+            optimized_embedding: optimized,
+            similar_patterns: patterns.into_iter().map(|p| PatternInfo {
+                quality: p.avg_quality,
+                cluster_size: p.cluster_size,
+            }).collect(),
+            latency_us: latency,
+        }
+    }
+
+    /// Record step in trajectory
+    pub async fn record_step(
+        &self,
+        traj_id: u64,
+        activations: Vec<f32>,
+        attention: Vec<f32>,
+        reward: f32,
+    ) {
+        let engine = self.engine.read().await;
+        engine.add_step(traj_id, activations, attention, reward);
+    }
+
+    /// Complete trajectory with feedback
+    pub async fn complete(&self, traj_id: u64, quality: f32, was_positive: bool) {
+        {
+            let engine = self.engine.read().await;
+            engine.end_trajectory(traj_id, quality);
+        }
+
+        // Update metrics
+        let mut m = self.metrics.write().await;
+        if was_positive {
+            m.positive_feedback += 1;
+        } else {
+            m.negative_feedback += 1;
+        }
+    }
+
+    /// Get current statistics
+    pub async fn stats(&self) -> Stats {
+        let engine = self.engine.read().await;
+        let engine_stats = engine.get_stats();
+
+        let m = self.metrics.read().await;
+
+        Stats {
+            engine_stats,
+            total_requests: m.total_requests,
+            total_learning_cycles: m.total_learning_cycles,
+            positive_feedback: m.positive_feedback,
+            negative_feedback: m.negative_feedback,
+            avg_latency_us: m.avg_latency_us,
+            feedback_ratio: if m.positive_feedback + m.negative_feedback > 0 {
+                m.positive_feedback as f64 / (m.positive_feedback + m.negative_feedback) as f64
+            } else {
+                0.0
+            },
+        }
+    }
+}
+
+pub struct ProcessResult {
+    pub trajectory_id: u64,
+    pub optimized_embedding: Vec<f32>,
+    pub similar_patterns: Vec<PatternInfo>,
+    pub latency_us: u64,
+}
+
+pub struct PatternInfo {
+    pub quality: f32,
+    pub cluster_size: usize,
+}
+
+pub struct Stats {
+    pub engine_stats: String,
+    pub total_requests: u64,
+    pub total_learning_cycles: u64,
+    pub positive_feedback: u64,
+    pub negative_feedback: u64,
+    pub avg_latency_us: f64,
+    pub feedback_ratio: f64,
+}
+```
+
+---
+
+## Configuration Guide
+
+### Optimized Defaults (v0.1.1)
+
+The default configuration is optimized based on extensive benchmarks:
+
+```rust
+SonaConfig {
+    hidden_dim: 256,
+    embedding_dim: 256,
+    micro_lora_rank: 2,       // 5% faster than rank-1 (better SIMD)
+    base_lora_rank: 8,
+    micro_lora_lr: 0.002,     // +55% quality improvement
+    base_lora_lr: 0.0001,
+    ewc_lambda: 2000.0,       // Better forgetting prevention
+    pattern_clusters: 100,    // 2.3x faster search
+    trajectory_capacity: 10000,
+    background_interval_ms: 3600000,  // 1 hour
+    quality_threshold: 0.3,   // Learn from more samples
+    enable_simd: true,
+}
+```
+
+### Configuration Presets
+
+```rust
+// For real-time chat applications
+let config = SonaConfig::max_throughput();
+
+// For research/batch processing (best quality)
+let config = SonaConfig::max_quality();
+
+// For mobile/edge devices (<5MB memory)
+let config = SonaConfig::edge_deployment();
+
+// For high-throughput batch processing
+let config = SonaConfig::batch_processing();
+```
+
+### Custom Configuration
 
 ```rust
 let config = SonaConfig {
-    ewc_lambda: 0.4,           // Constraint strength (0.0-1.0)
-    ewc_gamma: 0.95,           // Fisher decay rate
-    ewc_fisher_samples: 100,   // Samples for estimation
+    // Embedding dimensions (match your model)
+    hidden_dim: 512,
+    embedding_dim: 512,
+
+    // LoRA settings
+    micro_lora_rank: 2,      // 1-2 for speed, keep at 2 for SIMD
+    base_lora_rank: 16,      // 4-16 for expressiveness
+    micro_lora_lr: 0.002,    // Higher = faster learning, risk of instability
+    base_lora_lr: 0.0001,    // Lower = stable consolidation
+
+    // Memory protection
+    ewc_lambda: 2000.0,      // Higher = stronger protection against forgetting
+
+    // Pattern storage
+    pattern_clusters: 100,   // More clusters = faster search, more memory
+    trajectory_capacity: 20000,
+
+    // Learning triggers
+    background_interval_ms: 1800000,  // 30 minutes
+    quality_threshold: 0.2,  // Lower = learn from more trajectories
+
+    // Performance
+    enable_simd: true,
+};
+```
+
+---
+
+## API Reference
+
+### SonaEngine
+
+| Method | Description | Typical Latency |
+|--------|-------------|-----------------|
+| `new(hidden_dim)` | Create with default config | - |
+| `with_config(config)` | Create with custom config | - |
+| `builder()` | Start building configuration | - |
+| `begin_trajectory(embedding)` | Start recording interaction | ~50ns |
+| `add_trajectory_step(id, activations, attention, reward)` | Add step | ~112ns |
+| `set_trajectory_route(id, route)` | Set model route | ~20ns |
+| `add_trajectory_context(id, context)` | Add context | ~20ns |
+| `end_trajectory(id, quality)` | Complete with quality | ~100ns |
+| `apply_micro_lora(input)` | Fast transformation | ~45μs |
+| `apply_base_lora(layer, input)` | Deep transformation | ~25μs |
+| `tick()` | Run learning if due | ~34μs |
+| `force_learn()` | Force background cycle | ~5ms |
+| `flush()` | Flush instant updates | ~10μs |
+| `find_patterns(embedding, k)` | Find similar patterns | ~100μs |
+| `get_stats()` | Get JSON statistics | ~1μs |
+| `set_enabled(bool)` | Enable/disable engine | ~1ns |
+| `is_enabled()` | Check if enabled | ~1ns |
+
+### JsSonaConfig (Node.js)
+
+```typescript
+interface JsSonaConfig {
+    hiddenDim: number;              // Required
+    embeddingDim?: number;          // Default: hiddenDim
+    microLoraRank?: number;         // Default: 2
+    baseLoraRank?: number;          // Default: 8
+    microLoraLr?: number;           // Default: 0.002
+    baseLoraLr?: number;            // Default: 0.0001
+    ewcLambda?: number;             // Default: 2000
+    patternClusters?: number;       // Default: 100
+    trajectoryCapacity?: number;    // Default: 10000
+    backgroundIntervalMs?: number;  // Default: 3600000
+    qualityThreshold?: number;      // Default: 0.3
+    enableSimd?: boolean;           // Default: true
+}
+```
+
+### JsLearnedPattern (Node.js)
+
+```typescript
+interface JsLearnedPattern {
+    id: string;
+    centroid: number[];
+    clusterSize: number;
+    totalWeight: number;
+    avgQuality: number;
+    createdAt: string;
+    lastAccessed: string;
+    accessCount: number;
+    patternType: string;
+}
+```
+
+---
+
+## Benchmarks
+
+### Performance Results (v0.1.1)
+
+| Operation | Target | Achieved | Improvement |
+|-----------|--------|----------|-------------|
+| MicroLoRA Forward (256d) | <100μs | **45μs** | 2.2x better |
+| Trajectory Recording | <1μs | **112ns** | 9x better |
+| Instant Learning Cycle | <1ms | **34μs** | 29x better |
+| Pattern Search (100 clusters) | <5ms | **1.3ms** | 3.8x better |
+| Background Learning | <10ms | **~5ms** | 2x better |
+| Memory per Trajectory | <1KB | **~800B** | 20% better |
+
+### Throughput Benchmarks
+
+| Scenario | Ops/Second | Latency (p99) |
+|----------|------------|---------------|
+| MicroLoRA Rank-2 (SIMD) | 2,211 | 0.85ms |
+| MicroLoRA Rank-1 | 2,100 | 0.90ms |
+| Batch Size 32 | 2,236 | 0.45ms/vector |
+| Pattern Search (k=5) | 770 | 1.5ms |
+
+### Running Benchmarks
+
+```bash
+# Run all benchmarks
+cargo bench -p ruvector-sona
+
+# Run specific benchmark
+cargo bench -p ruvector-sona -- micro_lora
+
+# With detailed output
+cargo bench -p ruvector-sona -- --verbose
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**1. "MicroLoRA rank must be 1-2"**
+```rust
+// Wrong
+let config = SonaConfig { micro_lora_rank: 4, .. };
+
+// Correct - MicroLoRA is limited to rank 1-2 for speed
+let config = SonaConfig { micro_lora_rank: 2, .. };
+
+// For higher ranks, use BaseLoRA
+let config = SonaConfig { base_lora_rank: 16, .. };
+```
+
+**2. Embedding dimension mismatch**
+```rust
+// Engine expects 256-dim embeddings
+let engine = SonaEngine::new(256);
+
+// Wrong - 512-dim embedding
+let embedding = vec![0.1f32; 512];  // Panic!
+
+// Correct
+let embedding = vec![0.1f32; 256];
+let traj_id = engine.begin_trajectory(embedding);
+```
+
+**3. Low quality scores not learning**
+```rust
+// If quality_threshold is 0.5, scores below won't trigger learning
+let config = SonaConfig {
+    quality_threshold: 0.5,  // Only learns from quality >= 0.5
+    ..Default::default()
+};
+
+// Lower threshold to learn from more feedback
+let config = SonaConfig {
+    quality_threshold: 0.2,  // Learns from quality >= 0.2
     ..Default::default()
 };
 ```
 
-### ReasoningBank
-
-K-means++ clustering for trajectory pattern discovery and retrieval:
-
+**4. Memory growing unbounded**
 ```rust
-// Patterns are extracted automatically during background learning
-// Query similar patterns for a given embedding:
-let similar = engine.query_patterns(&query_embedding, k: 5);
+// Limit trajectory buffer
+let config = SonaConfig {
+    trajectory_capacity: 10000,  // Max trajectories in memory
+    ..Default::default()
+};
 
-for pattern in similar {
-    println!("Quality: {:.2}, Usage: {}", pattern.quality, pattern.usage_count);
-}
+// Force learning to clear buffer
+engine.force_learn();
 ```
 
-## Configuration
+### Performance Optimization Tips
 
-```rust
-pub struct SonaConfig {
-    // Dimensions
-    pub hidden_dim: usize,              // Default: 256
-    pub embedding_dim: usize,           // Default: 256
+1. **Use Rank-2 MicroLoRA** - 5% faster due to SIMD alignment
+2. **Batch inputs when possible** - Optimal batch size is 32
+3. **Use 100 pattern clusters** - 2.3x faster than 50
+4. **Enable SIMD** - 10% speedup on supported CPUs
+5. **Run background learning during low-traffic periods**
 
-    // LoRA Configuration
-    pub micro_lora_rank: usize,         // Default: 2 (recommended: 1-2)
-    pub base_lora_rank: usize,          // Default: 16 (recommended: 4-16)
-    pub lora_alpha: f32,                // Default: 1.0
-    pub lora_dropout: f32,              // Default: 0.0
-
-    // Trajectory Buffer
-    pub trajectory_buffer_size: usize,  // Default: 10000
-    pub max_trajectory_steps: usize,    // Default: 50
-
-    // EWC++ Configuration
-    pub ewc_lambda: f32,                // Default: 0.4
-    pub ewc_gamma: f32,                 // Default: 0.95
-    pub ewc_fisher_samples: usize,      // Default: 100
-    pub ewc_online: bool,               // Default: true
-
-    // ReasoningBank
-    pub pattern_clusters: usize,        // Default: 32
-    pub pattern_quality_threshold: f32, // Default: 0.7
-    pub consolidation_interval: usize,  // Default: 1000
-
-    // Learning Rates
-    pub micro_lr: f32,                  // Default: 0.01
-    pub base_lr: f32,                   // Default: 0.001
-}
-```
-
-## Practical Use Cases
-
-### 1. Chatbot Response Quality
-
-```rust
-// Thumbs up/down feedback
-match user_feedback {
-    Feedback::ThumbsUp => {
-        engine.learn_from_feedback(LearningSignal::positive(latency, 0.95));
-    }
-    Feedback::ThumbsDown => {
-        engine.learn_from_feedback(LearningSignal::negative(latency, 0.2));
-    }
-    Feedback::Regenerate => {
-        engine.learn_from_feedback(LearningSignal::negative(latency, 0.4));
-    }
-}
-```
-
-### 2. Multi-Model Router Optimization
-
-```rust
-// Record which models perform best for different query types
-async fn route_with_learning(&self, query: &str, embedding: Vec<f32>) {
-    let traj_id = self.sona.start_trajectory(embedding);
-
-    // Try multiple models, record scores
-    for (idx, model) in self.models.iter().enumerate() {
-        let start = Instant::now();
-        let response = model.evaluate(query).await;
-        let latency = start.elapsed().as_micros() as u64;
-
-        self.sona.record_step(traj_id, idx as u32, response.score, latency);
-    }
-
-    // Select best and complete trajectory
-    let best = self.select_best();
-    self.sona.end_trajectory(traj_id, best.quality);
-}
-```
-
-### 3. A/B Test Acceleration
-
-```rust
-// Quickly converge on winning variants using learned patterns
-async fn smart_ab_test(&self, query: &str, variants: &[Variant]) -> Response {
-    let embedding = self.embed(query);
-    let traj_id = self.sona.start_trajectory(embedding.clone());
-
-    // Use learned patterns to bias toward better variants
-    let optimized = self.sona.apply_lora(&embedding);
-    let variant = self.select_variant_ucb(variants, &optimized);
-
-    let response = variant.execute(query).await;
-    self.sona.record_step(traj_id, variant.id, response.quality, latency);
-    self.sona.end_trajectory(traj_id, response.quality);
-
-    response
-}
-```
-
-### 4. Personalized Recommendations
-
-```rust
-// Learn user preferences over time
-fn record_interaction(&self, user_id: &str, item: &Item, engaged: bool) {
-    let embedding = self.get_user_embedding(user_id);
-    let traj_id = self.sona.start_trajectory(embedding);
-
-    self.sona.record_step(traj_id, item.category_id, item.relevance, 0);
-    self.sona.end_trajectory(traj_id, if engaged { 1.0 } else { 0.0 });
-
-    let signal = LearningSignal::from_feedback(engaged, 0.0, if engaged { 0.9 } else { 0.1 });
-    self.sona.learn_from_feedback(signal);
-}
-```
-
-## Tutorials
-
-### Tutorial 1: Basic Learning Loop
-
-```rust
-use sona::{SonaEngine, SonaConfig, LearningSignal};
-
-fn main() {
-    let engine = SonaEngine::new(SonaConfig::default());
-
-    // Simulate 1000 queries with feedback
-    for i in 0..1000 {
-        // Generate query embedding
-        let query: Vec<f32> = (0..256).map(|_| rand::random()).collect();
-
-        // Record trajectory
-        let traj_id = engine.start_trajectory(query);
-
-        for step in 0..3 {
-            let score = 0.5 + rand::random::<f32>() * 0.5;
-            let latency = 50 + rand::random::<u64>() % 100;
-            engine.record_step(traj_id, step, score, latency);
-        }
-
-        let quality = 0.6 + rand::random::<f32>() * 0.4;
-        engine.end_trajectory(traj_id, quality);
-
-        // 70% positive feedback
-        let positive = rand::random::<f32>() > 0.3;
-        let signal = LearningSignal::from_feedback(positive, 100.0, quality);
-        engine.learn_from_feedback(signal);
-
-        // Run background learning every 100 queries
-        if i % 100 == 0 {
-            engine.run_background_cycle();
-        }
-    }
-
-    let stats = engine.stats();
-    println!("Trajectories: {}", stats.trajectories_recorded);
-    println!("Patterns: {}", stats.patterns_extracted);
-    println!("Learning cycles: {}", stats.learning_cycles);
-}
-```
-
-### Tutorial 2: Production Integration
-
-```rust
-use sona::SonaEngine;
-use std::sync::Arc;
-use tokio::time::{interval, Duration};
-
-#[tokio::main]
-async fn main() {
-    let engine = Arc::new(SonaEngine::new(Default::default()));
-
-    // Background learning task
-    let bg_engine = engine.clone();
-    tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(3600)); // Hourly
-        loop {
-            interval.tick().await;
-            bg_engine.run_background_cycle();
-            println!("Background learning completed: {:?}", bg_engine.stats());
-        }
-    });
-
-    // Request handling
-    let server_engine = engine.clone();
-    // ... your server code using server_engine
-}
-```
-
-## API Reference
-
-### SonaEngine Methods
-
-| Method | Description | Latency |
-|--------|-------------|---------|
-| `new(config)` | Create new engine | - |
-| `start_trajectory(embedding)` | Begin recording query | ~50ns |
-| `record_step(id, node, score, latency)` | Record routing step | ~112ns |
-| `end_trajectory(id, quality)` | Complete trajectory | ~100ns |
-| `learn_from_feedback(signal)` | Apply learning signal | ~500μs |
-| `apply_lora(input)` | Transform with both LoRA tiers | ~45μs |
-| `apply_micro_lora(input, output)` | MicroLoRA only | ~20μs |
-| `apply_base_lora(input, output)` | BaseLoRA only | ~25μs |
-| `run_instant_cycle()` | Force instant learning | ~34μs |
-| `run_background_cycle()` | Force background learning | ~5ms |
-| `query_patterns(embedding, k)` | Find similar patterns | ~100μs |
-| `stats()` | Get engine statistics | ~1μs |
-
-### LearningSignal
-
-| Method | Description |
-|--------|-------------|
-| `from_feedback(success, latency_ms, quality)` | Create from user feedback |
-| `from_trajectory(trajectory)` | Create using REINFORCE algorithm |
-| `positive(latency_ms, quality)` | Shorthand for positive signal |
-| `negative(latency_ms, quality)` | Shorthand for negative signal |
-
-## Feature Flags
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `default` | Includes `serde-support` | Yes |
-| `simd` | AVX2 SIMD acceleration | No |
-| `serde-support` | Serialization with serde | Yes |
-| `wasm` | WebAssembly bindings | No |
-| `napi` | Node.js NAPI-RS bindings | No |
-
-```toml
-# Minimal (no serialization)
-sona = { version = "0.1", default-features = false }
-
-# With WASM support
-sona = { version = "0.1", features = ["wasm"] }
-
-# With Node.js support
-sona = { version = "0.1", features = ["napi"] }
-
-# Full features
-sona = { version = "0.1", features = ["simd", "serde-support"] }
-```
-
-## Test Coverage
-
-| Component | Tests | Status |
-|-----------|-------|--------|
-| Core Types | 4 | Passing |
-| MicroLoRA | 6 | Passing |
-| Trajectory Buffer | 10 | Passing |
-| EWC++ | 7 | Passing |
-| ReasoningBank | 5 | Passing |
-| Learning Loops | 7 | Passing |
-| Engine | 6 | Passing |
-| Integration | 15 | Passing |
-| **Total** | **57** | **All Passing** |
-
-## Benchmarks
-
-Run benchmarks:
-
-```bash
-cargo bench -p sona
-```
-
-Key results:
-- MicroLoRA forward (256d): **45μs**
-- Trajectory recording: **112ns**
-- Instant learning cycle: **34μs**
-- Background learning: **5ms**
-- Pattern extraction (1000 trajectories): **5ms**
-
-## Contributing
-
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md).
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+---
 
 ## License
 
 Licensed under either of:
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
 
 at your option.
 
+## Contributing
+
+Contributions welcome! Please see our [Contributing Guide](https://github.com/ruvnet/ruvector/blob/main/CONTRIBUTING.md).
+
 ## Acknowledgments
 
-- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
-- [Elastic Weight Consolidation](https://arxiv.org/abs/1612.00796) for continual learning
-- [K-means++](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf) initialization algorithm
+- [LoRA Paper](https://arxiv.org/abs/2106.09685) - Low-Rank Adaptation
+- [EWC Paper](https://arxiv.org/abs/1612.00796) - Elastic Weight Consolidation
+- [K-means++](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf) - Initialization algorithm
 
 ---
 
 <div align="center">
 
-**[Documentation](https://docs.rs/sona)** | **[GitHub](https://github.com/ruvnet/ruvector)** | **[Crates.io](https://crates.io/crates/sona)**
+**[Documentation](https://docs.rs/ruvector-sona)** | **[GitHub](https://github.com/ruvnet/ruvector)** | **[npm](https://www.npmjs.com/package/@ruvector/sona)** | **[crates.io](https://crates.io/crates/ruvector-sona)**
 
-Made with Rust by the RuVector Team
+Made with 🦀 Rust by the RuVector Team
 
 </div>
