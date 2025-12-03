@@ -2,6 +2,7 @@
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Crates.io](https://img.shields.io/crates/v/ruvector-core.svg)](https://crates.io/crates/ruvector-core)
+[![postgres](https://img.shields.io/crates/v/ruvector-postgres.svg?label=postgres)](https://crates.io/crates/ruvector-postgres)
 [![SONA](https://img.shields.io/crates/v/ruvector-sona.svg?label=sona)](https://crates.io/crates/ruvector-sona)
 [![npm](https://img.shields.io/npm/v/ruvector.svg)](https://www.npmjs.com/package/ruvector)
 [![@ruvector/sona](https://img.shields.io/npm/v/@ruvector/sona.svg?label=%40ruvector%2Fsona)](https://www.npmjs.com/package/@ruvector/sona)
@@ -430,11 +431,27 @@ engine.endTrajectory(trajId, 0.95);
 
 ### PostgreSQL Extension
 
-| Crate | Description | crates.io |
-|-------|-------------|-----------|
-| [ruvector-postgres](./crates/ruvector-postgres) | pgvector-compatible PostgreSQL extension with SIMD optimization | [![crates.io](https://img.shields.io/crates/v/ruvector-postgres.svg)](https://crates.io/crates/ruvector-postgres) |
+| Crate | Description | crates.io | npm |
+|-------|-------------|-----------|-----|
+| [ruvector-postgres](./crates/ruvector-postgres) | pgvector-compatible PostgreSQL extension with SIMD optimization | [![crates.io](https://img.shields.io/crates/v/ruvector-postgres.svg)](https://crates.io/crates/ruvector-postgres) | [![npm](https://img.shields.io/npm/v/@ruvector/postgres-cli.svg)](https://www.npmjs.com/package/@ruvector/postgres-cli) |
 
-Drop-in replacement for pgvector with AVX-512/AVX2/NEON acceleration, HNSW and IVFFlat indexes, quantization support, and zero-copy operations. See [ruvector-postgres README](./crates/ruvector-postgres/README.md) for installation and usage.
+**v0.2.0** — Drop-in replacement for pgvector with **53+ SQL functions**, full **AVX-512/AVX2/NEON SIMD** acceleration (~2x faster than AVX2), HNSW and IVFFlat indexes, 39 attention mechanisms, GNN layers, hyperbolic embeddings, sparse vectors/BM25, and self-learning capabilities.
+
+```bash
+# Docker (recommended)
+docker run -d -e POSTGRES_PASSWORD=secret -p 5432:5432 ruvector/postgres:latest
+
+# From source
+cargo install cargo-pgrx --version "0.12.9" --locked
+cargo pgrx install --release
+
+# CLI tool for management
+npm install -g @ruvector/postgres-cli
+ruvector-pg install
+ruvector-pg vector create table --dim 1536 --index hnsw
+```
+
+See [ruvector-postgres README](./crates/ruvector-postgres/README.md) for full SQL API reference and advanced features.
 
 ### Tools & Utilities
 
@@ -545,6 +562,7 @@ Production-ready examples demonstrating RuVector integration patterns, from cogn
 | [@ruvector/router](https://www.npmjs.com/package/@ruvector/router) | Semantic router with HNSW vector search | [![npm](https://img.shields.io/npm/v/@ruvector/router.svg)](https://www.npmjs.com/package/@ruvector/router) |
 | [@ruvector/agentic-synth](https://www.npmjs.com/package/@ruvector/agentic-synth) | Synthetic data generator for AI/ML | [![npm](https://img.shields.io/npm/v/@ruvector/agentic-synth.svg)](https://www.npmjs.com/package/@ruvector/agentic-synth) |
 | [@ruvector/attention](https://www.npmjs.com/package/@ruvector/attention) | 39 attention mechanisms for transformers & GNNs | [![npm](https://img.shields.io/npm/v/@ruvector/attention.svg)](https://www.npmjs.com/package/@ruvector/attention) |
+| [@ruvector/postgres-cli](https://www.npmjs.com/package/@ruvector/postgres-cli) | CLI for ruvector-postgres extension management | [![npm](https://img.shields.io/npm/v/@ruvector/postgres-cli.svg)](https://www.npmjs.com/package/@ruvector/postgres-cli) |
 | [@ruvector/wasm](https://www.npmjs.com/package/@ruvector/wasm) | WASM fallback for core vector DB | [![npm](https://img.shields.io/npm/v/@ruvector/wasm.svg)](https://www.npmjs.com/package/@ruvector/wasm) |
 | [@ruvector/gnn-wasm](https://www.npmjs.com/package/@ruvector/gnn-wasm) | WASM fallback for GNN layers | [![npm](https://img.shields.io/npm/v/@ruvector/gnn-wasm.svg)](https://www.npmjs.com/package/@ruvector/gnn-wasm) |
 | [@ruvector/graph-wasm](https://www.npmjs.com/package/@ruvector/graph-wasm) | WASM fallback for graph DB | [![npm](https://img.shields.io/npm/v/@ruvector/graph-wasm.svg)](https://www.npmjs.com/package/@ruvector/graph-wasm) |
