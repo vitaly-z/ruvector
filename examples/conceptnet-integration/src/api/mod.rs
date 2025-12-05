@@ -10,11 +10,14 @@
 //! - Connection pooling
 //!
 //! ## Example
-//! ```rust
+//! ```rust,no_run
+//! # async fn example() -> anyhow::Result<()> {
 //! use conceptnet_integration::api::ConceptNetClient;
 //!
 //! let client = ConceptNetClient::new();
 //! let edges = client.lookup("/c/en/artificial_intelligence").await?;
+//! # Ok(())
+//! # }
 //! ```
 
 mod client;

@@ -461,8 +461,9 @@ mod tests {
 
     #[test]
     fn test_cosine_similarity() {
+        let graph = ConceptNetGraphBuilder::default_config();
         let engine = HybridQueryEngine::new(
-            &ConceptNetGraphBuilder::default_config(),
+            &graph,
             HybridQueryConfig::default(),
         );
 

@@ -1,9 +1,8 @@
 //! Integration tests for ConceptNet-RuVector integration
 
 use conceptnet_integration::api::{ConceptNode, Edge, Relation, RelationType};
-use conceptnet_integration::graph::builder::{ConceptNetGraphBuilder, GraphBuildConfig};
-use conceptnet_integration::gnn::layer::{CommonsenseGNN, GNNConfig};
-use conceptnet_integration::gnn::reasoning::{CommonsenseReasoner, ReasoningQuery};
+use conceptnet_integration::graph::{ConceptNetGraphBuilder, GraphBuildConfig};
+use conceptnet_integration::gnn::{CommonsenseGNN, GNNConfig, CommonsenseReasoner, ReasoningQuery};
 use conceptnet_integration::attention::{RelationAttention, CommonsenseAttentionConfig};
 use conceptnet_integration::numberbatch::{Numberbatch, MockNumberbatch};
 use conceptnet_integration::sona::{CommonsenseSona, CommonsenseSonaConfig};
