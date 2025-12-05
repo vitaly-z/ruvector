@@ -1,0 +1,901 @@
+{
+  "timestamp": "2025-12-05T02:40:19.565Z",
+  "version": "3.0.0-exotic-ed25519",
+  "provenance": {
+    "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+    "chainHash": "cbad8c3a0263ec19c11b4d237ec1dae6d04d8756158e49dade516eebb267b337",
+    "algorithm": "Ed25519",
+    "records": [
+      {
+        "timestamp": "2025-12-05T02:40:19.536Z",
+        "epochId": "epoch-1",
+        "dataHash": "d9c5d7daf14655b31df80d7a39e4741004f4cc4d4abe85dadb6a171dbb8e768e",
+        "signature": "a9cd43c8e7b3aa265354f2706e304cf05b3dd1d34998aecf579e812cbc7fd0c98d20f76362b10095f6a81d76f79ed9e9f057b25554f3998152fc087f19a7e309",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-easy",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.540Z",
+        "epochId": "epoch-2",
+        "dataHash": "91db69f2648d8d55b42ea878bf27485f86f191be27cf7723730aba96176e7622",
+        "signature": "a3d79251bff9319b11c40eb59ed9e5cbc37a206f6a028dfbc3b2a9dd5acc494d5ce9f3bd4f0e0e9e07d5aa851512a1d4bc118ec2ce510dd3f3b0dce1b1e60c01",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-easy",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.545Z",
+        "epochId": "epoch-3",
+        "dataHash": "cdb209770b6aa4d496057ef8cd17c3384eb3d400210f447aaba21d1be945adca",
+        "signature": "1330eef3fd2a74b60e8024165c16def4bbac7b045115a01743456537a8a30686c63ed0704be7329b62f68b2ed9ea642b596a3dbf5c242b6bb09f74eea7d2c403",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-easy",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.546Z",
+        "epochId": "epoch-4",
+        "dataHash": "40fd5dd498ec938f6f8e7b18bd8a95b2fc6428342a1b409c687ae28c0910abb1",
+        "signature": "1b67a70c14de418cca1680b29806d2b68ad62969beec7a50131c196a60d6118d3ee6c4c00e86b0112f4b8f989bc69552d5e14600d00047173a3521f8983f8601",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-medium",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.548Z",
+        "epochId": "epoch-5",
+        "dataHash": "9f575b36d96e0724fb33d4a8f9a372d70cb0e5679f8901c667d9f975573a7a35",
+        "signature": "8191fa99ced6969eb382eb44de9433b9d994a4b83bc027b3a6b0c7290724924093a77e92152a8f0885ba3f91604df984ed7fd6fbfa7f3d73a9053264cda16109",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-medium",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.550Z",
+        "epochId": "epoch-6",
+        "dataHash": "70f6cd4815542f8460fb2fbea234ab68b9c5e74f2f73f462ff29d1882f8f39a5",
+        "signature": "16d7a822c2de420231c32809881e270b74cc0f4b6b4aa9fec9361079aa0557d2833071d48f4ecbc833bc60593f83f271365d29996b7fcf2a22cbd98dad7f2a00",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-medium",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.553Z",
+        "epochId": "epoch-7",
+        "dataHash": "85a94fb98ce17e59e1632340a1e6591edef00430725a3d236becb81d7f3bfcc2",
+        "signature": "a8886410be8ac31f42a8ee20d9c52ea98be39e5b45a6c23347261e6f69b19735ececbdd786c7d1d126dd8e594022763f1eaa7face424efc676bb3b40d2da3906",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-hard",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.555Z",
+        "epochId": "epoch-8",
+        "dataHash": "e3d2034af9b090390b87d5db51ceaa156e2eec554726a4f600ba43d1f543f0bb",
+        "signature": "b635007493e9434db2f2772eada22878b76cb6935a3d625adadc3d6d7b0a74c2e8cc5cdf4ebea170927cf0d1d3beb18efb1ab7c765fcb1c10cd916e6c41bb308",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-hard",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.556Z",
+        "epochId": "epoch-9",
+        "dataHash": "3c4dcf76cc9069f0b0a5b0e4d95f056fca3c91bd26033d5609bae422987ef97d",
+        "signature": "7036a8f474b6d619ecf2def46468ed9b2092b48a001d5d6d86b0059aa844736268c90e5fc68d5700f8ae0fee24007f55ffb8eadd641796fa1f520d3da5e8fa05",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-hard",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.558Z",
+        "epochId": "epoch-10",
+        "dataHash": "a0248e48c0c621fbb6b49a97161006c54d169efe08d276f7560f800a54398fa9",
+        "signature": "39ee1efce2569e6f885d3f31149537b55d438dde1b2107557b43cd91437f990c52a2bfbf41ca9473a6645b5a7b38c45cf4e58d4f389f0c8bd8a2df2367b5c604",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-extreme",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.559Z",
+        "epochId": "epoch-11",
+        "dataHash": "b38c46f51855c57b6516573518c02c082c44bb557068127d7d30a8c66a232ae8",
+        "signature": "074a8bb31a9f7afdc7490d9dfba767d837235013692a1e0b9f2bd1d9983a60f4b7532c3a4d482ef06b94d63a9d0a62ba93af3f2f8909c2de6d5b3553b5891509",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-extreme",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      },
+      {
+        "timestamp": "2025-12-05T02:40:19.560Z",
+        "epochId": "epoch-12",
+        "dataHash": "f549dcb5a1f34a3f500da13602ae5a8727d016c7fe9ef558b8cd6dd79297583e",
+        "signature": "0167f1901dd2af99b79d0422c509f0f84160ec4bd6fd50c4a0550e82a18664413ac3a2483292cf073fc3256984677e647c757745de941e24c84681cf3aef2c0c",
+        "publicKey": "302a300506032b65700321004806ad9fec3cceb6ca5cd4f094afd85b03debb41e98243096e2cf63defb0e8ff",
+        "metadata": {
+          "technique": "exotic-v3-extreme",
+          "version": "3.0.0-exotic",
+          "hardwareInfo": "linux-x64"
+        }
+      }
+    ]
+  },
+  "config": {
+    "epochs": 12,
+    "tasks": 12,
+    "techniques": [
+      "neuromorphic",
+      "hyperbolic",
+      "meta-learning",
+      "contrastive",
+      "info-bottleneck"
+    ]
+  },
+  "epochResults": [
+    {
+      "epoch": 1,
+      "successRate": 0.4166666666666667,
+      "confidence": 0.5272771826956111,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 1,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 1
+        },
+        "contrastive": {
+          "avgLoss": 2.3902086579469626
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "medium": {
+          "success": 2,
+          "total": 4
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "extreme": {
+          "success": 0,
+          "total": 3
+        },
+        "hard": {
+          "success": 1,
+          "total": 3
+        }
+      },
+      "byType": {
+        "adversarial": {
+          "success": 0,
+          "total": 3
+        },
+        "temporal": {
+          "success": 1,
+          "total": 3
+        },
+        "compositional": {
+          "success": 1,
+          "total": 3
+        },
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 2,
+      "successRate": 0.75,
+      "confidence": 0.5544992345572654,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 2,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 2
+        },
+        "contrastive": {
+          "avgLoss": 2.3030198086033344
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "extreme": {
+          "success": 0,
+          "total": 3
+        }
+      },
+      "byType": {
+        "compositional": {
+          "success": 2,
+          "total": 3
+        },
+        "temporal": {
+          "success": 2,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        },
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 3,
+      "successRate": 0.75,
+      "confidence": 0.5806338476441167,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 3,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 3
+        },
+        "contrastive": {
+          "avgLoss": 2.3120268303356792
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "extreme": {
+          "success": 0,
+          "total": 3
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        }
+      },
+      "byType": {
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 2,
+          "total": 3
+        },
+        "compositional": {
+          "success": 2,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 4,
+      "successRate": 0.8333333333333334,
+      "confidence": 0.6254118666317701,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 4,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 4
+        },
+        "contrastive": {
+          "avgLoss": 2.3956470243657813
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "extreme": {
+          "success": 1,
+          "total": 3
+        }
+      },
+      "byType": {
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "compositional": {
+          "success": 2,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 5,
+      "successRate": 0.8333333333333334,
+      "confidence": 0.6513253012951185,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 5,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 5
+        },
+        "contrastive": {
+          "avgLoss": 2.559137572660364
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "extreme": {
+          "success": 1,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        }
+      },
+      "byType": {
+        "compositional": {
+          "success": 2,
+          "total": 3
+        },
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 6,
+      "successRate": 0.9166666666666666,
+      "confidence": 0.6811086064215949,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 6,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 6
+        },
+        "contrastive": {
+          "avgLoss": 2.457891758077808
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "extreme": {
+          "success": 2,
+          "total": 3
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        }
+      },
+      "byType": {
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 7,
+      "successRate": 0.9166666666666666,
+      "confidence": 0.696567525242641,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 7,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 7
+        },
+        "contrastive": {
+          "avgLoss": 2.397124740028192
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "extreme": {
+          "success": 2,
+          "total": 3
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        }
+      },
+      "byType": {
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        },
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 8,
+      "successRate": 0.9166666666666666,
+      "confidence": 0.7146918876000578,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 8,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 8
+        },
+        "contrastive": {
+          "avgLoss": 2.631313892385726
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "extreme": {
+          "success": 2,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        }
+      },
+      "byType": {
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 9,
+      "successRate": 0.9166666666666666,
+      "confidence": 0.7284056855156237,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 9,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 9
+        },
+        "contrastive": {
+          "avgLoss": 2.320985524023321
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "extreme": {
+          "success": 2,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        }
+      },
+      "byType": {
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 2,
+          "total": 3
+        },
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 10,
+      "successRate": 1,
+      "confidence": 0.7413636823601585,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 10,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 10
+        },
+        "contrastive": {
+          "avgLoss": 2.487596710899204
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "extreme": {
+          "success": 3,
+          "total": 3
+        }
+      },
+      "byType": {
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 3,
+          "total": 3
+        },
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 11,
+      "successRate": 1,
+      "confidence": 0.7382443122112731,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 11,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 11
+        },
+        "contrastive": {
+          "avgLoss": 2.5983419319312855
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "extreme": {
+          "success": 3,
+          "total": 3
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        }
+      },
+      "byType": {
+        "adversarial": {
+          "success": 3,
+          "total": 3
+        },
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    },
+    {
+      "epoch": 12,
+      "successRate": 1,
+      "confidence": 0.7391444796354466,
+      "techniqueMetrics": {
+        "neuromorphic": {
+          "spikes": 12,
+          "membrane": 0
+        },
+        "hyperbolic": {
+          "patterns": 3,
+          "avgDistance": 0
+        },
+        "metaLearning": {
+          "adaptations": 12
+        },
+        "contrastive": {
+          "avgLoss": 2.32574335681555
+        },
+        "infoBottleneck": {
+          "compression": 1
+        }
+      },
+      "byDifficulty": {
+        "hard": {
+          "success": 3,
+          "total": 3
+        },
+        "easy": {
+          "success": 2,
+          "total": 2
+        },
+        "medium": {
+          "success": 4,
+          "total": 4
+        },
+        "extreme": {
+          "success": 3,
+          "total": 3
+        }
+      },
+      "byType": {
+        "compositional": {
+          "success": 3,
+          "total": 3
+        },
+        "hierarchical": {
+          "success": 3,
+          "total": 3
+        },
+        "adversarial": {
+          "success": 3,
+          "total": 3
+        },
+        "temporal": {
+          "success": 3,
+          "total": 3
+        }
+      }
+    }
+  ],
+  "finalStats": {
+    "patternsLearned": 123,
+    "avgSuccessRate": 1,
+    "ewcTasksProtected": 11,
+    "improvement": {
+      "successRate": "140.0%",
+      "confidence": "40.2%"
+    }
+  },
+  "verification": {
+    "chainValid": true,
+    "signatureCount": 12
+  }
+}
