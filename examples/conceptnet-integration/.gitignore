@@ -1,0 +1,16 @@
+# ConceptNet Data Files (large, downloaded on demand)
+data/
+*.csv.gz
+*.txt.gz
+*.h5
+*.hdf5
+
+# Binary embeddings cache
+*.bin
+
+# Temporary files
+*.tmp
+*.swp
+
+# Build artifacts
+target/

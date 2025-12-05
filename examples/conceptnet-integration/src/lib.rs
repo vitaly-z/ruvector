@@ -104,6 +104,7 @@ pub mod attention;
 pub mod numberbatch;
 pub mod sona;
 pub mod ruvllm;
+pub mod loader;
 
 /// Re-exports for convenience
 pub mod prelude {

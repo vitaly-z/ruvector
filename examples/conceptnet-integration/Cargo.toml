@@ -47,6 +47,12 @@ governor = "0.7"
 # Async utilities
 futures = "0.3"
 
+# Compression for .gz files
+flate2 = "1.0"
+
+# CPU detection for parallel loading
+num_cpus = "1.16"
+
 # Hashing for deduplication
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
@@ -59,6 +65,10 @@ approx = "0.5"
 [[bin]]
 name = "conceptnet-demo"
 path = "src/main.rs"
+
+[[bin]]
+name = "load-real-conceptnet"
+path = "src/bin/load_real_conceptnet.rs"
 
 [[bench]]
 name = "conceptnet_benchmarks"

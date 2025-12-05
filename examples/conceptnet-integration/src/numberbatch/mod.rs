@@ -375,6 +375,11 @@ impl Numberbatch {
         self.embeddings.keys()
     }
 
+    /// Iterate over all concept-embedding pairs
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Vec<f32>)> {
+        self.embeddings.iter()
+    }
+
     /// Get concepts by language
     pub fn concepts_by_language(&self, lang: &str) -> Vec<&String> {
         let prefix = format!("/c/{}/", lang);
