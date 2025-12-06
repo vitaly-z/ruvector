@@ -828,76 +828,66 @@ export class RuVectorClient {
     query: number[],
     keys: number[][],
     values: number[][],
-    type: 'scaled_dot' | 'multi_head' | 'flash' = 'scaled_dot'
+    _type: 'scaled_dot' | 'multi_head' | 'flash' = 'scaled_dot'
   ): Promise<AttentionResult> {
-    let funcName: string;
-    let params: unknown[];
+    // Use actual PostgreSQL attention functions available in the extension:
+    // - attention_score(query, key) -> score
+    // - attention_softmax(scores) -> normalized scores
+    // - attention_single(query, key, value, offset) -> {score, value}
+    // - attention_weighted_add(accumulator, value, weight) -> accumulated
+    // - attention_init(dim) -> zero vector
 
-    if (type === 'multi_head') {
-      funcName = 'ruvector_multi_head_attention';
-      params = [query, keys, values, 4];
-    } else if (type === 'flash') {
-      funcName = 'ruvector_flash_attention';
-      params = [query, keys, values, 64];
-    } else {
-      // For scaled_dot, compute attention scores directly
-      const result = await this.query<{ scores: number[] }>(
-        'SELECT ruvector_attention_scores($1::real[], $2::real[][], $3) as scores',
-        [query, keys, 'scaled_dot']
+    // Compute attention scores for each key
+    const scores: number[] = [];
+    for (const key of keys) {
+      const result = await this.query<{ score: number }>(
+        'SELECT attention_score($1::real[], $2::real[]) as score',
+        [query, key]
       );
-      return { output: result[0].scores };
+      scores.push(result[0].score);
     }
 
-    const result = await this.query<{ output: number[] }>(
-      `SELECT ${funcName}($1::real[], $2::real[][], $3::real[][], $4) as output`,
-      params
+    // Apply softmax to get attention weights
+    const weightsResult = await this.query<{ weights: number[] }>(
+      'SELECT attention_softmax($1::real[]) as weights',
+      [scores]
     );
-    return { output: result[0].output };
+    const weights = weightsResult[0].weights;
+
+    // Compute weighted sum of values
+    if (values.length === 0 || values[0].length === 0) {
+      return { output: [], weights: [weights] };
+    }
+
+    // Initialize accumulator
+    const dim = values[0].length;
+    let accumulator = new Array(dim).fill(0);
+
+    // Weighted addition of values
+    for (let i = 0; i < values.length; i++) {
+      const addResult = await this.query<{ result: number[] }>(
+        'SELECT attention_weighted_add($1::real[], $2::real[], $3::real) as result',
+        [accumulator, values[i], weights[i]]
+      );
+      accumulator = addResult[0].result;
+    }
+
+    return { output: accumulator, weights: [weights] };
   }
 
   async listAttentionTypes(): Promise<string[]> {
-    // Return hardcoded list since ruvector_attention_types() doesn't exist
-    // These are the attention types supported by the extension
+    // Return the attention types actually supported by the extension
+    // The extension provides primitive functions that can implement these patterns:
+    // - attention_score: scaled dot-product attention score
+    // - attention_softmax: softmax normalization
+    // - attention_single: single query-key-value attention
+    // - attention_weighted_add: weighted accumulation
+    // - attention_init: initialize accumulator
     return [
-      'scaled_dot_product',
-      'multi_head',
-      'flash',
-      'sparse',
-      'linear',
-      'cross',
-      'self',
-      'causal',
-      'local',
-      'global',
-      'sliding_window',
-      'dilated',
-      'axial',
-      'factorized',
-      'perceiver',
-      'linformer',
-      'longformer',
-      'bigbird',
-      'reformer',
-      'performer',
-      'rfa',
-      'cosformer',
-      'nyströmformer',
-      'luna',
-      'fnet',
-      'gau',
-      'mega',
-      'mamba',
-      'rwkv',
-      'hyena',
-      'h3',
-      's4',
-      's4d',
-      'lru',
-      'gss',
-      'tno',
-      'toeplitz',
-      'retnet',
-      'gla',
+      'scaled_dot_product',  // Basic attention using attention_score + attention_softmax
+      'self_attention',      // Query = Key = Value from same sequence
+      'cross_attention',     // Query from one source, K/V from another
+      'causal_attention',    // Masked attention for autoregressive models
     ];
   }
 
