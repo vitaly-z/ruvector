@@ -1,0 +1,57 @@
+[package]
+name = "ruvector-ios-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "iOS-optimized WASM recommendation engine with vector embeddings and Q-learning"
+license = "MIT"
+authors = ["Ruvector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+
+# Keep out of parent workspace
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Minimal dependencies for smallest binary size
+# No wasm-bindgen - using raw WASM exports for WasmKit compatibility
+
+[features]
+default = []
+# SIMD acceleration (requires Safari 16.4+ / iOS 16.4+)
+simd = []
+
+# ============================================
+# iOS WASM Size Optimization Profile
+# Target: <5MB final binary, sub-100ms latency
+# ============================================
+
+[profile.release]
+# Maximum size optimization (z = size, s = size+speed balance)
+opt-level = "z"
+# Enable Link-Time Optimization for dead code elimination
+lto = "fat"
+# Single codegen unit for maximum optimization
+codegen-units = 1
+# Remove panic unwinding (saves ~100KB)
+panic = "abort"
+# Strip all debug symbols
+strip = "symbols"
+# Disable incremental compilation for better optimization
+incremental = false
+# Optimize dependencies too
+rpath = false
+
+[profile.release.package."*"]
+opt-level = "z"
+
+# Dev profile with some optimization for testing
+[profile.dev]
+opt-level = 1
+debug = true
+
+# Bench profile inheriting release optimizations
+[profile.bench]
+inherits = "release"
+debug = false
