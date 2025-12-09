@@ -35,6 +35,7 @@ pub mod advanced_features;
 pub mod agenticdb;
 
 pub mod distance;
+pub mod embeddings;
 pub mod error;
 pub mod index;
 pub mod quantization;
@@ -70,6 +71,11 @@ pub use advanced_features::{
 
 #[cfg(feature = "storage")]
 pub use agenticdb::AgenticDB;
+
+pub use embeddings::{EmbeddingProvider, HashEmbedding, ApiEmbedding, BoxedEmbeddingProvider};
+
+#[cfg(feature = "real-embeddings")]
+pub use embeddings::CandleEmbedding;
 
 // Compile-time warning about AgenticDB limitations
 #[cfg(feature = "storage")]
