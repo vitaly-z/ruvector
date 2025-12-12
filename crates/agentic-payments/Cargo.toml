@@ -1,0 +1,62 @@
+[package]
+name = "agentic-payments"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "High-performance payment processing for WASM App Store - credits, subscriptions, micropayments"
+keywords = ["payments", "wasm", "micropayments", "credits", "blockchain"]
+categories = ["finance", "wasm", "cryptography"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = []
+wasm = ["wasm-bindgen", "js-sys", "getrandom/wasm_js"]
+napi = ["dep:napi", "dep:napi-derive"]
+blockchain = ["ed25519-dalek", "sha2"]
+full = ["std", "blockchain"]
+
+[dependencies]
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Async
+tokio = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+
+# Time and IDs
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# Performance
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+
+# Cryptography (optional for blockchain features)
+ed25519-dalek = { version = "2.1", optional = true }
+sha2 = { version = "0.10", optional = true }
+hex = "0.4"
+
+# WASM support (optional)
+wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
+
+# Node.js bindings (optional)
+napi = { workspace = true, optional = true }
+napi-derive = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

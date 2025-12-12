@@ -1,0 +1,61 @@
+{
+  "name": "@ruvector/agentic-payments",
+  "version": "0.1.0",
+  "description": "High-performance payment processing for WASM App Store - credits, subscriptions, micropayments",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./wasm": {
+      "import": "./wasm/agentic_payments_wasm.js",
+      "types": "./wasm/agentic_payments_wasm.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "wasm",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build:wasm": "cd ../../.. && wasm-pack build crates/agentic-payments-wasm --target web --out-dir ../npm/packages/agentic-payments/wasm",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "payments",
+    "wasm",
+    "micropayments",
+    "credits",
+    "subscriptions",
+    "app-store",
+    "ruvector"
+  ],
+  "author": "Ruvector Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/agentic-payments"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector#readme",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
+  }
+}

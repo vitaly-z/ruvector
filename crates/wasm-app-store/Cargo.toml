@@ -1,0 +1,71 @@
+[package]
+name = "wasm-app-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "WASM App Store - registry, lifecycle, and distribution for chip-sized and full WASM applications"
+keywords = ["wasm", "app-store", "marketplace", "chip-apps", "webassembly"]
+categories = ["wasm", "web-programming", "development-tools"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = []
+wasm = ["wasm-bindgen", "js-sys", "web-sys", "getrandom/wasm_js"]
+napi = ["dep:napi", "dep:napi-derive"]
+payments = ["agentic-payments"]
+verification = ["ed25519-dalek"]
+full = ["std", "payments", "verification"]
+
+[dependencies]
+# Internal dependencies
+agentic-payments = { path = "../agentic-payments", optional = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Time and IDs
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# Performance
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+
+# Cryptography
+sha2 = "0.10"
+ed25519-dalek = { version = "2.1", optional = true }
+hex = "0.4"
+serde_bytes = "0.11"
+
+# Compression
+flate2 = "1.0"
+
+# WASM support (optional)
+wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = ["Worker", "MessagePort", "console", "Blob", "Url"] }
+getrandom = { workspace = true, optional = true }
+
+# Node.js bindings (optional)
+napi = { workspace = true, optional = true }
+napi-derive = { workspace = true, optional = true }
+
+# Async
+tokio = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

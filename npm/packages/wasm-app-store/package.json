@@ -1,0 +1,55 @@
+{
+  "name": "@ruvector/wasm-app-store",
+  "version": "0.1.0",
+  "description": "WASM App Store - registry, lifecycle, and distribution for chip-sized and full WASM applications",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./wasm": {
+      "import": "./wasm/wasm_app_store_wasm.js",
+      "types": "./wasm/wasm_app_store_wasm.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "wasm",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build:wasm": "cd ../../.. && wasm-pack build crates/wasm-app-store-wasm --target web --out-dir ../npm/packages/wasm-app-store/wasm",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "wasm",
+    "webassembly",
+    "app-store",
+    "marketplace",
+    "chip-apps",
+    "ruvector"
+  ],
+  "author": "Ruvector Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector.git",
+    "directory": "npm/packages/wasm-app-store"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector#readme",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "dependencies": {
+    "@ruvector/agentic-payments": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}
