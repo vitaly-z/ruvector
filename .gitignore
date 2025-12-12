@@ -69,3 +69,10 @@ claude-flow
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 examples/scipix/test_images/
+
+# Build artifacts - rvlite dashboard
+crates/rvlite/examples/dashboard/dist/
+crates/rvlite/examples/dashboard/public/pkg/
+
+# Embedding cache
+.fastembed_cache/
