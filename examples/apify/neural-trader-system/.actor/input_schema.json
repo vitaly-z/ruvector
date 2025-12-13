@@ -12,14 +12,22 @@
         "optimize",
         "analyze",
         "train",
-        "live"
+        "live",
+        "backtest",
+        "sports_betting",
+        "prediction_markets",
+        "arbitrage"
       ],
       "enumTitles": [
         "Generate Trading Signals",
         "Optimize Portfolio",
-        "Market Analysis",
+        "Deep Market Analysis",
         "Train Neural Model",
-        "Live Trading"
+        "Live Trading (Alpaca)",
+        "Backtest Strategy (Monte Carlo)",
+        "Sports Betting (Kelly Criterion)",
+        "Prediction Markets (Polymarket)",
+        "Arbitrage Detection (Cross-Exchange)"
       ],
       "default": "signals",
       "editor": "select"
