@@ -27,7 +27,13 @@ Developed by [rUv](https://ruv.io) - Advanced AI orchestration and trading syste
 - 🛡️ **Risk Management** - Value at Risk (VaR), Expected Shortfall, Position Sizing
 - 📈 **Pattern Recognition** - 40+ chart patterns (Head & Shoulders, Double Tops, Triangles)
 - 🔔 **Webhook Integration** - Automated trading bot connectivity
-- 📉 **Backtesting** - Walk-forward analysis with historical data
+- 📉 **Backtesting** - Monte Carlo simulation with confidence intervals
+
+### Advanced Trading Modes
+- 🏈 **Sports Betting** - Kelly Criterion optimal betting with The Odds API integration
+- 🔮 **Prediction Markets** - Polymarket CLOB analysis with probability modeling
+- 💱 **Arbitrage Detection** - Cross-exchange crypto and DeFi arbitrage opportunities
+- 💰 **Live Trading** - Alpaca API integration with paper/live trading modes
 
 ### Technical Indicators
 - RSI (Relative Strength Index)
@@ -322,17 +328,206 @@ Now you can ask Claude:
 
 ---
 
+### Tutorial 6: Monte Carlo Backtesting
+
+**Objective:** Validate strategy performance with statistical confidence intervals.
+
+**Configuration:**
+```json
+{
+  "mode": "backtest",
+  "symbols": ["AAPL", "GOOGL", "MSFT"],
+  "strategy": "ensemble",
+  "initialCapital": 100000,
+  "monteCarloRuns": 1000,
+  "backtestDays": 90
+}
+```
+
+**Output:**
+```json
+{
+  "mode": "backtest",
+  "results": [
+    {
+      "symbol": "AAPL",
+      "return": -5.55,
+      "sharpe": -0.23,
+      "maxDrawdown": 12.3,
+      "winRate": 45.2,
+      "monteCarlo": {
+        "mean": -4.2,
+        "std": 2.1,
+        "ci95": [-8.3, -0.1]
+      }
+    }
+  ]
+}
+```
+
+---
+
+### Tutorial 7: Sports Betting with Kelly Criterion
+
+**Objective:** Find value bets with optimal position sizing.
+
+**Configuration:**
+```json
+{
+  "mode": "sports_betting",
+  "symbols": ["NFL", "NBA", "MLB"],
+  "riskProfile": "moderate",
+  "bankroll": 10000,
+  "minEdge": 0.05
+}
+```
+
+**Features:**
+- The Odds API integration for real-time odds
+- Kelly Criterion optimal bet sizing
+- Arbitrage opportunity detection
+- American/Decimal odds conversion
+- Expected value calculations
+
+**Output:**
+```json
+{
+  "mode": "sports_betting",
+  "valueBets": [
+    {
+      "event": "Lakers vs Celtics",
+      "market": "moneyline",
+      "selection": "Lakers",
+      "odds": 2.45,
+      "impliedProb": 40.8,
+      "modelProb": 48.5,
+      "edge": 7.7,
+      "kellyFraction": 0.16,
+      "recommendedBet": 320
+    }
+  ],
+  "arbitrageOpportunities": 3
+}
+```
+
+---
+
+### Tutorial 8: Prediction Markets Analysis
+
+**Objective:** Analyze Polymarket contracts for mispriced opportunities.
+
+**Configuration:**
+```json
+{
+  "mode": "prediction_markets",
+  "symbols": ["politics", "crypto", "sports"],
+  "minLiquidity": 10000,
+  "confidenceThreshold": 60
+}
+```
+
+**Features:**
+- Polymarket CLOB API integration
+- Probability modeling with Bayesian inference
+- Liquidity depth analysis
+- Historical accuracy tracking
+- Market efficiency scoring
+
+**Output:**
+```json
+{
+  "mode": "prediction_markets",
+  "markets": [
+    {
+      "title": "BTC > $50k by March 2025",
+      "currentPrice": 0.42,
+      "modelProbability": 0.58,
+      "edge": 16,
+      "liquidity": 125000,
+      "recommendation": "BUY YES",
+      "confidence": 72
+    }
+  ]
+}
+```
+
+---
+
+### Tutorial 9: Cross-Exchange Arbitrage
+
+**Objective:** Detect price discrepancies across crypto exchanges.
+
+**Configuration:**
+```json
+{
+  "mode": "arbitrage",
+  "symbols": ["BTC/USD", "ETH/USD", "SOL/USD"],
+  "exchanges": ["binance", "coinbase", "kraken"],
+  "minSpread": 0.5,
+  "includeDeFi": true
+}
+```
+
+**Features:**
+- Multi-exchange price monitoring
+- Fee-adjusted profit calculations
+- DeFi DEX integration (Uniswap, SushiSwap)
+- Flash loan arbitrage detection
+- Latency analysis
+
+**Output:**
+```json
+{
+  "mode": "arbitrage",
+  "opportunities": [
+    {
+      "pair": "ETH/USDT",
+      "buyExchange": "Kraken",
+      "sellExchange": "Binance",
+      "buyPrice": 2340.50,
+      "sellPrice": 2358.20,
+      "spread": 0.76,
+      "netProfit": 12.70,
+      "profitPercent": 0.54
+    }
+  ],
+  "defiOpportunities": [
+    {
+      "type": "triangular",
+      "path": "ETH → USDC → WBTC → ETH",
+      "profit": 0.32
+    }
+  ]
+}
+```
+
+---
+
 ## 🎛️ Input Parameters
 
 ### Core Settings
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `mode` | enum | `signals` | `signals`, `optimize`, `analyze`, `train`, `live` |
+| `mode` | enum | `signals` | See [Trading Modes](#-trading-modes) below |
 | `symbols` | array | `["BTC/USD"]` | Trading symbols to analyze |
 | `strategy` | enum | `ensemble` | Neural network strategy |
 | `riskProfile` | enum | `moderate` | `conservative`, `moderate`, `aggressive`, `custom` |
 | `timeframe` | enum | `1h` | `1m`, `5m`, `15m`, `1h`, `4h`, `1d` |
+
+### 🎮 Trading Modes
+
+| Mode | Description |
+|------|-------------|
+| `signals` | Generate buy/sell/hold signals with confidence scores |
+| `optimize` | Portfolio optimization using Markowitz & Kelly Criterion |
+| `analyze` | Deep technical analysis with 40+ patterns & Fibonacci |
+| `train` | Train neural network with gradient descent & early stopping |
+| `live` | Live trading via Alpaca API (paper/live modes) |
+| `backtest` | Historical simulation with Monte Carlo confidence intervals |
+| `sports_betting` | Kelly Criterion betting with The Odds API integration |
+| `prediction_markets` | Polymarket CLOB analysis with probability modeling |
+| `arbitrage` | Cross-exchange crypto & DeFi arbitrage detection |
 
 ### Position Management
 
